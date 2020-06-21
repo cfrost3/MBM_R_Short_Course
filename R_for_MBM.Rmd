@@ -1,0 +1,24 @@
+---
+title: "Practical R for MBM- Syllabus"
+author: "Chuck Frost"
+date: "6/7/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Practical R for MBM field data manipulation and analysis
+
+The purpose of this ongoing short course is to familiarize MBM personnel with the concepts of tidy data, basic data manipulation, and basic programming techniques as implemented in R.  It is expected that participants have a working understanding of R and RStudio. We will not go into depth on other types of programming, specifically statistical programming and computer programming.  The topics covered here will foster appropriate treatment of MBM data throughout the data life cycle and lead to cleaner and more useful data in the future.
+
+
+## Topics
+
+1. R, RStudio, packages, help
+2. Loading and saving, data types
+3. Visualization
+4. Working with dates
+5. Looping and functions
+6. Tidy data
