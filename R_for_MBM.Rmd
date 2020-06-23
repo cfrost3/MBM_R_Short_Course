@@ -1,7 +1,7 @@
 ---
-title: "Practical R for MBM- Syllabus"
+title: "Practical R for MBM"
 author: "Chuck Frost"
-date: "6/7/2020"
+date: "6/23/2020"
 output: pdf_document
 ---
 
@@ -16,9 +16,232 @@ The purpose of this ongoing short course is to familiarize MBM personnel with th
 
 ## Topics
 
-1. R, RStudio, packages, help
+1. R, RStudio, packages, help, intro to functions
 2. Loading and saving, data types
 3. Visualization
 4. Working with dates
-5. Looping and functions
+5. Creating functions, conditional statements, looping
 6. Tidy data
+
+
+## What is R?  
+
+An open-source programming environment that serves as:
+
+1. A giant calculator
+2. An interface for data analysis and visualization
+3. An interface for data manipulation and file handling
+4. An interface for a simple and efficient programming language (S, that became R)
+
+R isn't the "method."  For example, "We used R to estimate population size." [yuck]
+
+## What is RStudio?  
+
+An integrated development environment (IDE) for R.
+
+Provides tools, menus, help, and easy access to the best parts of R.
+
+##Packages:
+
+Base R automatically provides you with many common functions. 
+
+```{r eval=FALSE}
+mean(c(1,2,3))
+
+sum(c(1,2,3))
+
+var(c(1,2,3))
+
+```
+
+Other useful functions exist thanks to R users. Collections of related functions get wrapped into packages. 
+
+If you're looking for something NOT in base R, you need to install the related package.
+
+The CRAN provides R community tested and approved packages. Check the packages tab in RStudio for some you already have installed but (probably) not loaded.  Just click them to load.  If you know what package you need, there are 2 easy ways to install it. The first is by clicking the install button in the packages tab.  Search the CRAN for the package you want and install it.  The second is:
+
+```{r eval=FALSE}
+install.packages("PackageName")
+
+```
+
+Don't forget to load the package after installation, either by checking the box under packages, or by calling:
+
+```{r eval=FALSE}
+library(PackageName)
+
+```
+
+Note that in install.packages() you are searching a string in quotes, "PackageName"
+while in library() you are calling a package object without quotes, PackageName.
+
+##Installing from GitHub
+
+If a package isn't uploaded to CRAN, it can still be made available through GitHub.  Packages installed from GitHub require an intermediate step:
+
+```{r eval=FALSE}
+install.packages("devtools")
+ 
+library(devtools)
+ 
+install_github("USFWS/AKaerial", ref = "development")
+
+library(AKaerial) 
+```
+
+This code does 4 things:
+1. Install devtools package
+2. Load devtools package
+3. Call install_github (from devtools), look for the GitHub account "USFWS" and repository "AKaerial" and load the package in the "development" branch
+4. Load AKaerial package
+
+Installing and loading AKaerial may take a while since it includes dependencies.  Dependencies are packages that are specified within another package that must be included for that package to operate appropriately.  Akaerial "depends" on several other packages and will check if you have these installed.
+
+##Functions
+
+Once you have a package loaded, you can access functions written and included in that package.  Typing the name of a function will spit out the code that makes up the function.  This can be messy for a long or complicated function.  Typing ?FunctionName will access the help file for a given function.  
+
+```{r eval=FALSE}
+AdjustCounts
+
+?AdjustCounts
+ 
+```
+
+This can be extremely helpful (if the help file is!) when troubleshooting why your code isn't working as you want it to.  Note that the top of the help file also tells you FunctionName {PackageName} in case you can't figure out where your function is coming from.  This could be the case if you have dozens of packages loaded or have borrowed someone else's code to help run your analysis.  Don't underestimate the power of internet searches to find if something already exists to help you do your thing!  
+
+
+We will talk about functions in more depth later, but for now, the general idea is that functions take arguments, run processes, and (usually) return products saved as R objects.  
+
+```{r eval=FALSE}
+numbers = c(1,2,3)
+
+avg = mean(numbers)
+
+```
+
+In this example, numbers is initiated as a vector of 3 integers: 1,2,3.  We then run the function mean with numbers as its argument, and save the result as the object avg.  
+
+It can be helpful to think of functions as recipes and arguments as ingredients.  
+
+```{r eval=FALSE}
+
+Mix = function(what.to.mix){
+  dough = sum(what.to.mix)
+  return(dough)
+  }
+
+Bake = function(what.to.bake, time.to.bake){
+  
+  cookies = what.to.bake * time.to.bake
+  
+  return(cookies)
+  
+}
+
+
+my.ingredients = c("sugar", "eggs", "butter", "flour")
+
+my.dough = Mix(my.ingredients)
+
+my.cookies = Bake(my.dough, 10)
+
+```
+
+
+
+##Loading Files
+
+There are many ways to read data into R.  We will go over the most common way data is stored and used in R; as a data frame.  A data frame is a 2-dimensional array (table) where each column represents a variable (category) and each row represents a unique observation.  Let's start with creating your own data frame.  This might be useful if you have a small data set.  
+
+
+```{r eval=FALSE}
+
+small.data = data.frame(
+  name = c("Laura", "Zak", "Chuck"),
+  size = c("small", "medium", "large"),
+  tenure = c("drifter",6,9)
+    )
+
+```
+
+We can now check the structure of the data frame.  This is a great first QA/QC check!  If we know that tenure should be numeric, the structure should confirm it.  
+
+```{r eval=FALSE}
+
+str(small.data)
+
+```
+
+Notice how all 3 variables are shown as Factor, which is incorrect. Factors, in general are tough to work with.  If we try to change the value here (use $ to grab a column and brackets to select a row [ ], or use only brackets to select [row, column]), it throws an error.  
+
+```{r eval=FALSE}
+
+small.data$tenure[1] = 3
+
+small.data[1,3] = 3
+
+levels(small.data$tenure)
+```
+
+Since R couldn't determine the structure of our tenure column, it defaulted to calling it a Factor, which can take any value.  The unique set of values gets set as the levels of that factor.  If you try to define a value outside of that set, you will get an error that results in NA.  This is (almost) never what you want.  So we can fix this in 2 ways:
+
+First, we can use the "as." functions in base R to force R to evaluate something as a different data type.  In this case, we can't just let R evaluate the factor as numeric since it will then take a numeric representation of that particular level of a factor in the set of all levels of that factor.  What a mess.  We have to first convert the factor to a character string using as.character, then to a numeric using as.numeric.  This is called wrapping functions, when you pass as an argument to a new function the output of another function without saving the intermediate result.  In the outer-most function call to as.numeric, anything that R can't represent as numeric will get NA.  This is already messy and hard to trace changes to your data!
+
+```{r eval=FALSE}
+
+small.data$tenure=as.numeric(as.character(small.data$tenure))
+
+
+```
+
+Or, since we are scripting our analysis, we can change it in our original code chunk and just re-run. Score 1 for a nice scripted workflow...but imagine doing this through thousands or hundreds of thousands of rows of data.
+
+```{r eval=FALSE}
+
+small.data = data.frame(
+  name = c("Laura", "Zak", "Chuck"),
+  size = c("small", "medium", "large"),
+  tenure = c(3,6,9)
+    )
+
+```
+
+While we are at it, lets just purge the factors from our data entirely.  It is easy to make something a factor later, if we ever see the need.  To do this, we just pass the argument stringsAsFactors = FALSE to our data frame function.  Note that we have to add a comma after the declaration of our final column tenure.  
+
+```{r eval=FALSE}
+
+small.data = data.frame(
+  name = c("Laura", "Zak", "Chuck"),
+  size = c("small", "medium", "large"),
+  tenure = c(3,6,9),
+  stringsAsFactors = FALSE
+    )
+
+str(small.data)
+
+```
+
+Now we are clean...maybe.  Our structure says our name and size columns are chr (character) and our tenure correctly shows (num) numeric.  Now we want add a new column (greatness) using the values in an existing column.  We can both create and define the values of the new column in one step.
+
+```{r eval=FALSE}
+
+small.data$greatness = small.data$tenure^3
+
+str(small.data)
+
+```
+
+Now we have our 4 columns and the structure even gives us what it can display of the values. Now what if we want to add another row of data?  The function rbind (row bind) makes it easy.  As long as our new row is in the same order and type as the columns of our data frame, we can simply call:
+
+```{r eval=FALSE}
+
+rbind(small.data, c("Hannah", "small", 1, 1))
+
+str(small.data)
+
+```
+
+
+
+
