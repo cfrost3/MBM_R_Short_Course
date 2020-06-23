@@ -16,36 +16,36 @@ The purpose of this ongoing short course is to familiarize MBM personnel with th
 
 ## Topics
 
-1. R, RStudio, packages, help, intro to functions
-2. Loading and saving, data types
-3. Visualization
-4. Working with dates
-5. Creating functions, conditional statements, looping
-6. Tidy data
+1. R, RStudio, packages, help, intro to functions  
+2. Loading and saving, data types and structures  
+3. Visualization  
+4. Working with dates  
+5. Creating functions, conditional statements, looping  
+6. Tidy data  
 
 
-## What is R?  
+## 1.0.1 What is R?  
 
 An open-source programming environment that serves as:
 
-1. A giant calculator
-2. An interface for data analysis and visualization
-3. An interface for data manipulation and file handling
-4. An interface for a simple and efficient programming language (S, that became R)
+1. A giant calculator  
+2. An interface for data analysis and visualization  
+3. An interface for data manipulation and file handling  
+4. An interface for a simple and efficient programming language (S, that became R)  
 
-R isn't the "method."  For example, "We used R to estimate population size." [yuck]
+R isn't the "method."  For example, "We used R to estimate population size." yuck
 
-## What is RStudio?  
+## 1.0.2 What is RStudio?  
 
 An integrated development environment (IDE) for R.
 
 Provides tools, menus, help, and easy access to the best parts of R.
 
-##Packages:
+## 1.1.1 Packages
 
 Base R automatically provides you with many common functions. 
 
-```{r eval=FALSE}
+```{r eval=TRUE}
 mean(c(1,2,3))
 
 sum(c(1,2,3))
@@ -75,7 +75,7 @@ library(PackageName)
 Note that in install.packages() you are searching a string in quotes, "PackageName"
 while in library() you are calling a package object without quotes, PackageName.
 
-##Installing from GitHub
+## 1.1.2 Installing from GitHub
 
 If a package isn't uploaded to CRAN, it can still be made available through GitHub.  Packages installed from GitHub require an intermediate step:
 
@@ -89,15 +89,15 @@ install_github("USFWS/AKaerial", ref = "development")
 library(AKaerial) 
 ```
 
-This code does 4 things:
-1. Install devtools package
-2. Load devtools package
-3. Call install_github (from devtools), look for the GitHub account "USFWS" and repository "AKaerial" and load the package in the "development" branch
-4. Load AKaerial package
+This code does 4 things:  
+1. Install devtools package  
+2. Load devtools package  
+3. Call install_github (from devtools), look for the GitHub account "USFWS" and repository "AKaerial" and load the package in the "development" branch  
+4. Load AKaerial package  
 
 Installing and loading AKaerial may take a while since it includes dependencies.  Dependencies are packages that are specified within another package that must be included for that package to operate appropriately.  Akaerial "depends" on several other packages and will check if you have these installed.
 
-##Functions
+## 1.1.3 Functions
 
 Once you have a package loaded, you can access functions written and included in that package.  Typing the name of a function will spit out the code that makes up the function.  This can be messy for a long or complicated function.  Typing ?FunctionName will access the help file for a given function.  
 
@@ -113,10 +113,12 @@ This can be extremely helpful (if the help file is!) when troubleshooting why yo
 
 We will talk about functions in more depth later, but for now, the general idea is that functions take arguments, run processes, and (usually) return products saved as R objects.  
 
-```{r eval=FALSE}
+```{r eval=TRUE}
 numbers = c(1,2,3)
 
 avg = mean(numbers)
+
+avg
 
 ```
 
@@ -150,24 +152,24 @@ my.cookies = Bake(my.dough, 10)
 
 
 
-##Loading Files
-
+## 2.1.0 Loading Files
+ 
 There are many ways to read data into R.  We will go over the most common way data is stored and used in R; as a data frame.  A data frame is a 2-dimensional array (table) where each column represents a variable (category) and each row represents a unique observation.  Let's start with creating your own data frame.  This might be useful if you have a small data set.  
 
 
-```{r eval=FALSE}
+```{r eval=TRUE}
 
 small.data = data.frame(
   name = c("Laura", "Zak", "Chuck"),
   size = c("small", "medium", "large"),
-  tenure = c("drifter",6,9)
+  tenure = c(6, "drifter",9)
     )
 
 ```
 
 We can now check the structure of the data frame.  This is a great first QA/QC check!  If we know that tenure should be numeric, the structure should confirm it.  
 
-```{r eval=FALSE}
+```{r eval=TRUE}
 
 str(small.data)
 
@@ -175,11 +177,11 @@ str(small.data)
 
 Notice how all 3 variables are shown as Factor, which is incorrect. Factors, in general are tough to work with.  If we try to change the value here (use $ to grab a column and brackets to select a row [ ], or use only brackets to select [row, column]), it throws an error.  
 
-```{r eval=FALSE}
+```{r eval=TRUE}
 
-small.data$tenure[1] = 3
+small.data$tenure[2] = 3
 
-small.data[1,3] = 3
+small.data[2,3] = 3
 
 levels(small.data$tenure)
 ```
@@ -188,33 +190,34 @@ Since R couldn't determine the structure of our tenure column, it defaulted to c
 
 First, we can use the "as." functions in base R to force R to evaluate something as a different data type.  In this case, we can't just let R evaluate the factor as numeric since it will then take a numeric representation of that particular level of a factor in the set of all levels of that factor.  What a mess.  We have to first convert the factor to a character string using as.character, then to a numeric using as.numeric.  This is called wrapping functions, when you pass as an argument to a new function the output of another function without saving the intermediate result.  In the outer-most function call to as.numeric, anything that R can't represent as numeric will get NA.  This is already messy and hard to trace changes to your data!
 
-```{r eval=FALSE}
+```{r eval=TRUE}
 
 small.data$tenure=as.numeric(as.character(small.data$tenure))
 
+str(small.data)
 
 ```
 
 Or, since we are scripting our analysis, we can change it in our original code chunk and just re-run. Score 1 for a nice scripted workflow...but imagine doing this through thousands or hundreds of thousands of rows of data.
 
-```{r eval=FALSE}
+```{r eval=TRUE}
 
 small.data = data.frame(
   name = c("Laura", "Zak", "Chuck"),
   size = c("small", "medium", "large"),
-  tenure = c(3,6,9)
+  tenure = c(6,3,9)
     )
 
 ```
 
 While we are at it, lets just purge the factors from our data entirely.  It is easy to make something a factor later, if we ever see the need.  To do this, we just pass the argument stringsAsFactors = FALSE to our data frame function.  Note that we have to add a comma after the declaration of our final column tenure.  
 
-```{r eval=FALSE}
+```{r eval=TRUE}
 
 small.data = data.frame(
   name = c("Laura", "Zak", "Chuck"),
   size = c("small", "medium", "large"),
-  tenure = c(3,6,9),
+  tenure = c(6,3,9),
   stringsAsFactors = FALSE
     )
 
@@ -224,24 +227,119 @@ str(small.data)
 
 Now we are clean...maybe.  Our structure says our name and size columns are chr (character) and our tenure correctly shows (num) numeric.  Now we want add a new column (greatness) using the values in an existing column.  We can both create and define the values of the new column in one step.
 
-```{r eval=FALSE}
+```{r eval=TRUE}
 
 small.data$greatness = small.data$tenure^3
 
 str(small.data)
 
+small.data
 ```
 
 Now we have our 4 columns and the structure even gives us what it can display of the values. Now what if we want to add another row of data?  The function rbind (row bind) makes it easy.  As long as our new row is in the same order and type as the columns of our data frame, we can simply call:
 
-```{r eval=FALSE}
+```{r eval=TRUE}
 
-rbind(small.data, c("Hannah", "small", 1, 1))
+small.data = rbind(small.data, c("Hannah", "small", 1, 1))
 
 str(small.data)
 
+small.data
+
 ```
 
+As you can imagine, the same thing can be done for columns using cbind.  Let's add another one:
+
+```{r eval=TRUE}
+
+small.data = cbind(small.data, interests=c("Bedazzling", "K-Pop", "Couponing", "Oranges"))
+
+small.data
+
+```
+
+## 2.2.0 Reading in a data file
+
+If you have a data file that exists (hopefully) as .csv or .txt, base R has a function that will read your data into a data frame for you.  We will demo this with a .csv of fake aerial survey data.  Remember that R works best (and sometimes only!) with tidy data.  Your file should at least be rectangular (no loose columns, no long or dangling rows) and preferably will have column headings, though those can also be defined later.  The function read.table will be the most generic and robust method, but there is also read.csv that saves a little time since you are predefining the formatting.  
+
+Plain text format is the simplest way to store text.  One step up are delimited files.  The most common types of delimited files and tab- and comma-delimited.  Comma-delimited files are commonly saved as .csv (comma separated values).  R does not care how your files are delimited, you just have to know the delimiting character(s) and pass them as arguments in the function call.  
 
 
 
+```{r eval=FALSE}
+
+my.data = read.table("SomeData.txt", header = TRUE, sep = " ")
+
+```
+
+This tells R to find the file SomeData.txt (it will default to your working directory, but you can path it anywhere).  It will open it, read the header row into the data frame my.data, then scan the file for spaces (sep = " ") and add entries between spaces to the values in each row.  What could possibly go wrong with space-delimiting?  Or even comma-delimiting?  
+
+To illustrate further concepts below we will be using an artificial data set I modified for this demo.  It is located on the [GitHub repository](https://github.com/cfrost3/MBM_R_Short_Course) for this short course.  To read it in, we will use read.csv, which tells R to expect a comma-delimited file.  Oh, and we should also get rid of those nasty factors for now.  
+
+
+```{r eval=TRUE}
+
+aerial=read.csv(
+  "https://raw.githubusercontent.com/cfrost3/MBM_R_Short_Course/master/BLSC_2018_RawObs_Fake.csv", 
+                header=TRUE,
+                stringsAsFactors=FALSE)
+
+str(aerial)
+
+```
+
+Hey!  We have real (fake) data!  Anything stand out immediately in the structure of the file?
+
+
+## 2.3.1 Data Types
+
+R has 4 basic data types you will use (6 in total, actually, including raw and complex):  
+1. Integer (1, 2, 3, 4)  
+2. Numeric (2, 4, 2.4, 45.48)  
+3. Character ("cat", "DOG", "15d", "and so on")  
+4. Logical (TRUE, FALSE)  
+
+## 2.3.2 Data Structures
+
+Depending on how you combine data types, you can end up with one of several data structures:  
+1. Vector - a collection of all one data type  
+2. Matrix - multidimensional collection of vectors  
+3. Factor - nomical set of unique values and a vector of integer indices  
+4. List - open format to contain data structure elements  
+5. Data frame - our most common, discussed above  
+
+There are many other data structures in R, including user-defined and package-defined structures.  We will mostly stick to the common ones.  
+
+## 2.3.3 Useful Data Structure Functions
+
+Base R comes with many quick ways to assess your data structures.  We will go into more depth later, but for now, explore commands such as:
+
+```{r eval=TRUE}
+
+a = c(1,2,3,4,10.1)
+
+length(a)  #how long is the vector?
+
+mean(a)  #mean value
+
+var(a)  #variance
+
+typeof(a)  #what data type?  (double means floating decimal numeric)
+
+is.na(a)  #any NA or missing values?
+
+summary(a)  #some basic summarizing statistics
+
+max(a)  #maximum value
+
+min(a)  #minimum value
+
+dim(small.data)  #what are the dimensions of a structure?
+
+class(small.data)  #what class of structure is it?
+
+names(small.data)  #what are the names of the objects that make up the structure?
+
+unique(small.data$size)  #what are all of the unique values in a range?
+
+```
