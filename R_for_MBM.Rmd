@@ -1,7 +1,7 @@
 ---
 title: "Practical R for MBM"
 author: "Chuck Frost"
-date: "6/23/2020"
+date: "6/30/2020"
 output: pdf_document
 ---
 
@@ -18,10 +18,10 @@ The purpose of this ongoing short course is to familiarize MBM personnel with th
 
 1. R, RStudio, packages, help, intro to functions  
 2. Loading and saving, data types and structures  
-3. Visualization  
+3. Tidy Data  
 4. Working with dates  
 5. Creating functions, conditional statements, looping  
-6. Tidy data  
+6. Visualization 
 
 
 ## 1.0.1 What is R?  
@@ -343,3 +343,271 @@ names(small.data)  #what are the names of the objects that make up the structure
 unique(small.data$size)  #what are all of the unique values in a range?
 
 ```
+
+
+## 3.0.0 Tidy Data
+
+Tidy data refers to a data set that satisfies 3 conditions:  
+1. Every column is 1 variable  
+2. Every row is 1 observation  
+3. Every cell is 1 value  
+
+In R, tidy data lends itself seamlessly to the vectorized functions we discussed above (and thousands of others).  In addition to summarizing functions, such as length(), mean(), max(), min(), etc., plot functions in R work sometimes exclusively and other times much cleaner and more efficiently with tidy data. 
+
+It is important to note here that quality controlled data (typos removed, missing data correctly recorded, etc.) and tidy data are 2 separate and important characteristics.  
+
+Messy data (data that is not tidy) is often the result of database design by a data collector, rather than an analyst or data manager.  This is not meant to place blame.  A data collector has one primary purpose; translate the raw observations in the field into some sort of tabular archive.  That archive will generally, then, take the form and function that was easiest and fastest for the collector to enter the data (a very reasonable result since it is often preferrable to get data collected and archived quickly).  A data analyst similarly can have one primary purpose; to analyze data.  While the analyst would also like to do things relatively as quickly as possible, messy data can make analysis lengthy, difficult, costly, and sometimes impossible.  In MBM, for example, we have spent easily over 90% of our time cleaning data instead of on analysis (and the general consensus among similar analysts across all fields is 75-80% of time on cleaning).  
+
+## 3.1.0 Common Problems
+
+There are 2 common problems with data that we run into frequently in MBM:  
+1. Using values as column names  
+2. Multiple variables in one column  
+
+## 3.1.1 Values as Column Names
+
+Consider the following data frame:
+
+```{r eval=TRUE}
+
+messy1 = data.frame(Species = rep(c("COGO", "BOOW"), each = 3), 
+                    Box=c(1:6), 
+                    Visit1 = c(5,6,6,4,5,4),
+                    Visit2 = c(5,6,5,4,5,7),
+                    Visit3 = c(0,6,5,4,5,0),
+                    Visit4 = c(NA,0,0,1,0,NA),
+                    Visit5 = c(NA,NA,NA,0,NA,NA), 
+                    stringsAsFactors = FALSE
+                    )
+
+
+messy1
+
+```
+
+Imagine they are visits to nests of 2 different species and the counts of the eggs that were found on each visit.  Why is this messy?  Looks clean enough.  Easy enough for the data collector.  Notice how columns 3-7 are labeled?  This is a prime example of using a value for a variable (in this case, visit number) as the column header.  It now becomes awkward for those nests that don't share the same number of visits.  As an analyst, how can I script a quick summary of the number of times a nest was visited?  Maybe by counting the number of cells that have a value greater than or equal to 0 in a row?
+
+```{r eval=TRUE}
+#give me the total of row 1 values greater than or equal to 0
+v = sum(messy1[1,]>0)  
+
+v
+
+```
+
+Ouch.  Oh yeah, the NA values.  A sum containing an NA is always NA.  So let's remove those.  
+
+```{r eval=TRUE}
+#give me the total of row 1 values greater than or equal to 0, and skip the NAs
+v = sum(messy1[1,]>0, na.rm = TRUE)  
+
+v
+
+```
+
+Ok, looks like it worked.  But not when we spot check it.  We forgot that Box will (probably) always be greater than or equal to 0.  So let's tack on a modifier. 
+
+```{r eval=TRUE}
+#give the total of row 1 values >= to 0, skip the NAs, subtract 1 for Box
+v = sum(messy1[1,]>0, na.rm = TRUE)-1  
+
+v
+
+```
+
+Well, we now correctly show 3 visits.  But what could possibly go wrong with this in a larger script?  Or imagine in an ACTUAL data set, where we have dozens of columns.  This is the kind of thing that would drive an analyst bonkers AND would be a nightmare to fix after it has been done for years on a large data set.  We won't even attempt to reshape this using base R commands.  Lucky for us, we have the tidyverse package.  
+
+Tidyverse is actually a collection of packages developed by data scientists, for data scientists. When you install tidyverse, you get them all.  It streamlines importing, cleaning, tidying, visualizing, analyzing, and reporting any size data set.  Most (all) of the functions and functionality available in the tidyverse are also possible in base R, but often with significantly more (and generally more confusing) code.  We can't possibly describe them all, but we will hit some of the main functions.  
+
+First, let's install the tidyverse package.  This may take a while depending on how many of the packages you already have.  We will also reload our fake aerial survey data to play with. 
+
+```{r eval=FALSE}
+
+install.packages("tidyverse")
+
+```
+
+```{r eval=TRUE}
+
+library(tidyverse)
+
+aerial=read.csv(
+  "https://raw.githubusercontent.com/cfrost3/MBM_R_Short_Course/master/BLSC_2018_RawObs_Fake.csv", 
+                header=TRUE,
+                stringsAsFactors=FALSE)
+
+```
+
+If you recall, we used the $ operator to reference a column in a data frame.  Tidyverse provides a cleaner syntax with the select function.
+
+```{r eval=TRUE}
+#grab Transect, Species, and Num only from aerial
+aerial.subset = select(aerial, Transect, Species, Num)  
+
+head(aerial.subset)  #only show me the first few rows
+
+```
+
+Quick, easy, and intuitive.  Now let's only keep observations of 3 or more.
+
+```{r eval=TRUE}
+
+aerial.subset2 = filter(aerial.subset, Num > 2) #give me observations greater than 2
+
+head(aerial.subset2)
+
+```
+
+These are useful, but notice how we keep having to save out our results as new names with an increasing number on the end?  This will get messy and out of control fast as we add on more filters and subsets and summaries.  To combat this, the Tidyverse (specifically the magrittr package) has the pipe operator (%>%).  The pipe operator chains together a series of functions and uses the results of the previous pipes in the subsequent pipes.  It makes for a cleaner sequence that you can track later.  For example, the sequence below will subset our columns and filter to bigger observations as we did above, but also filter out the START and ENDPT observations, then count the number of observations by species that met the conditions leading up to the aggregate.  
+
+```{r eval=TRUE}
+
+obs.by.species = aerial %>%
+  
+  #grab Transect, Species, and Num only from aerial
+  select(Transect, Species, Num)  %>% 
+  
+  #Num greater than 2, but remove START and ENDPT observations
+  filter(Num > 2 & !(Species %in% c("START", "ENDPT")) ) %>% 
+
+  
+  aggregate(Num~Species, .,FUN=length)
+
+  names(obs.by.species)[2]="N.obs"
+  
+obs.by.species
+
+```
+
+We have a lot going on there.  Note the command %in% that will only keep string values that it finds within a set of other string values.  But in this case, I wrap it in !, which can be read as "not."  So that line becomes "filter down to observations greater than 2 and where Species is not START or ENDPT."  
+
+Now that we have the pipe in our toolbox, let's revisit the actual messy data problem.  
+
+```{r eval=TRUE}
+
+messy1
+
+```
+
+We have 6 nest boxes that were visited up to 5 times and we just want a summary of the number of visits and the average number of eggs in the nest each visit.  We have incorrectly recorded values of our variable Visit as column headers.  Let's fix it. 
+
+```{r eval=TRUE}
+
+tidy1 = messy1 %>%
+  pivot_longer(c("Visit1", "Visit2","Visit3","Visit4","Visit5",), 
+               names_to = "Visit", 
+               values_to = "eggs")
+
+tidy1
+
+```
+
+This result is...ehhhh.  It looks ok, but we can do better.  
+
+```{r eval=TRUE}
+
+tidy1 = messy1 %>%
+  pivot_longer(
+   cols = starts_with("Visit"),
+   names_to = "Visit",
+   names_prefix = "Visit",
+   values_to = "Eggs",
+   values_drop_na = TRUE
+ )
+
+head(tidy1,10)
+
+```
+
+We took messy1 and applied pivot_longer, which will translate our column values into expanded row values.  We further parameterized it by asking for all columns that started with Visit (cols = starts_with("Visit")), and removed the prefix Visit (names_prefix = "Visit") and sent the remainder to a new Visit column (names_to = "Visit").  We then took the row values (counts of eggs, though you can't tell from the data) and sent them to the appropriate new Species-Box-Visit row combination and labelled the new column Eggs (values_to = "Eggs").  Finally, we removed the NAs.  These were causing problems above and since they were really just empty cells and not visits, they are better off gone.  Now we can cleanly summarize our data!
+
+```{r eval=TRUE}
+
+vis = tidy1 %>% 
+  aggregate(Visit~Species + Box, ., FUN=max)
+names(vis)[3] = "Num.Visits"
+
+vis
+
+avg.egg = tidy1 %>%
+  filter(Visit == 1) %>%
+  aggregate(Eggs~Species, ., FUN=mean)
+names(avg.egg)[2] = "Avg.Eggs"
+
+avg.egg
+
+#Or using just tidyverse
+
+tidy1 %>% 
+ filter(Visit == 1) %>%
+ group_by(Species) %>%
+ summarize(Avg.Eggs=mean(Eggs))
+
+
+
+```
+
+
+
+## 3.1.2 Multiple Variables in One Column
+
+Another common problem in MBM data sets is combining the values of multiple variables into a single column.  Sometimes this is what we really thought was the best way to store values, and other times we make excuses about the limitations of our data collection programs or devices to store things certain ways.  The results are messy data either way, and this serves to increase the rate of decay of the actual information we can extract from our data.  Consider the following (fake) data:
+
+```{r eval=TRUE}
+messy2 = data.frame(monthday=paste(rep(6,10), c(1:10), sep="/"), Grade=rep(c("A", "F"), 5))
+
+messy2
+
+
+```
+
+In this simple example, we have monthday, which is the month and day separated by a period, and a fictitious grade received on that day.  We should really have month and day as their own columns.  Let's separate.
+
+```{r eval=TRUE}
+messy2 %>%
+    separate(monthday, into=c("Month", "Day"), sep="/")
+
+```
+
+That was suspiciously easy...so let's try it with our aerial data.  The column Species sounds like it should be the species.  But it isn't.  It is actually 3 values: species, behavior, and distance.  But that isn't the end of it.  The behavior was only recorded if the bird was flying.  Pretty messy.  So let's tidy it.
+
+
+```{r eval=TRUE}
+
+unique(aerial$Species)
+
+aerial.tidy = aerial %>% 
+ filter(!(Species %in% c("START", "ENDPT"))) %>%  #remove start and end points
+ select(Lat, Long, Species, Num) %>% #filter to just 4 columns for illustration
+ separate(Species, into=c("Species", "Distance"), sep = -1) %>% #take away the rightmost string value
+ separate(Species, into=c("Species", "Behavior"), sep = 4)  #take away the first 4 string values
+ 
+ 
+ head(aerial.tidy)
+
+ unique(aerial.tidy$Species)
+
+```
+
+An initial look at the Species column showed that the Distance was always the last value in the string.  So we were able to tell separate that we need to pull that one out.  
+
+```{r eval=FALSE}
+
+ separate(Species, into=c("Species", "Distance"), sep = -1)
+
+```
+
+Then after pulling that one out, we saw that the species code was always the first 4 characters in the string, so we were able to tell separate to always give us those.  
+
+```{r eval=FALSE}
+
+ separate(Species, into=c("Species", "Behavior"), sep = 4) 
+
+
+```
+
+With the pipe, we did it all in one command, and we can move on to bigger and better things, such as visualization!
+
+
+ 
+ 
