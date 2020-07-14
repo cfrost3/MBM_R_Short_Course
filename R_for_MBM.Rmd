@@ -1,7 +1,7 @@
 ---
 title: "Practical R for MBM"
 author: "Chuck Frost"
-date: "6/30/2020"
+date: "7/10/2020"
 output: pdf_document
 ---
 
@@ -19,9 +19,9 @@ The purpose of this ongoing short course is to familiarize MBM personnel with th
 1. R, RStudio, packages, help, intro to functions  
 2. Loading and saving, data types and structures  
 3. Tidy Data  
-4. Working with dates  
+4. Visualization  
 5. Creating functions, conditional statements, looping  
-6. Visualization 
+6. Working with dates
 
 
 ## 1.0.1 What is R?  
@@ -427,7 +427,7 @@ install.packages("tidyverse")
 
 ```
 
-```{r eval=TRUE}
+```{r eval=TRUE, message=FALSE}
 
 library(tidyverse)
 
@@ -610,4 +610,1067 @@ With the pipe, we did it all in one command, and we can move on to bigger and be
 
 
  
+## 4.0.0 Tables and Figures
+
+The first step in any data manipulation, analysis, QA/QC process, or almost any other data-related activity should be to visualize your data.  This will be the best way to catch any potential inconsistencies or errors before you embed them deep in an analysis or report.  Base R provides many ways to visualize data quickly and easily, but contributed packages such as DT, kableExtra, ggplot2, and leaflet expand on base R to provide publication-quality tables and figures.  We will start with base R tables.
+
+## 4.1.1 Base R Tables
+
+Let's make sure we have our aerial data loaded and tidy.
+
+```{r eval=TRUE}
+
+library(tidyverse)
+
+aerial=read.csv(
+  "https://raw.githubusercontent.com/cfrost3/MBM_R_Short_Course/master/BLSC_2018_RawObs_Fake.csv", 
+  header=TRUE,
+  stringsAsFactors=FALSE)
+
+aerial.tidy = aerial %>% 
+ filter(!(Species %in% c("START", "ENDPT"))) %>%  #remove start and end points
+ select(Lat, Long, Species, Num) %>% #filter to just 4 columns for illustration
+ separate(Species, into=c("Species", "Distance"), sep = -1) %>% #take away the rightmost string value
+ separate(Species, into=c("Species", "Behavior"), sep = 4)  #take away the first 4 string values
  
+ 
+ head(aerial.tidy)
+
+table(aerial.tidy$Species,aerial.tidy$Distance)
+
+
+```
+
+The format is table(rows, columns), and we can even add multidimensionality:
+
+
+```{r eval=TRUE}
+
+table(aerial.tidy$Species,aerial.tidy$Distance, aerial.tidy$Behavior)
+
+```
+
+One important thing to remember with table in base R is that the default summary will simply give you a count of the number of times the 2 observations occurred together (NOT the total number of things we counted by species in this example).  Always keep track of what you are visualizing.  You can also easily calculate the proportion of observations in a table.  
+
+
+```{r eval=TRUE}
+
+prop.table(table(aerial.tidy$Species,aerial.tidy$Distance))
+
+```
+
+This proportion table tells us that our most frequent observation (roughly 28% of the time) was BLSC in distance bin 3.  Notice how we had to wrap the table() function with prop.table()?  That is because while table() expects (rows, columns) format, prop.table expects a table() as input.  We can even wrap the whole thing in a max() to verify our 28%.
+
+```{r eval=TRUE}
+
+max(prop.table(table(aerial.tidy$Species,aerial.tidy$Distance)))
+
+```
+
+One thing we would certainly want to know from our aerial data collection is the number (Num) of each species we counted.  We can get that number (albeit inefficiently) using tables.
+
+```{r eval=TRUE}
+
+table(aerial.tidy$Species,aerial.tidy$Num)
+
+str(aerial.tidy)
+
+```
+
+Well, that won't work.  It seems we've identified a QA/QC issue.  We could've caught this by checking the structure of our data frame as well (see how Num shows as chr?).  Let's pluck those 2 offenders out and fix them.  We will find them and fix them in 2 different ways for illustration only.  One useful function for this is which().  It will return the index or indices (similar to the row number in Excel) of the row(s) of the observation(s) that fit a condition.  In our case, we want to know where the d and t are hanging out.  
+
+```{r eval=TRUE}
+
+which(aerial.tidy$Num %in% c("d", "t"))  #what positions are the d and t in?
+
+aerial.tidy$Num[427] #verify 
+
+aerial.tidy[427,] #show me that whole row 427 and all of its columns
+
+aerial.tidy[c(427,438),] #show me both row 427 and 438 and all of their columns
+
+```
+
+Let's imagine that we had our observer go back through the recordings (because both the observer and recordings still exist), and they found that d should be 2 and t should be 1.  Since we know the indices of the offenders, we can just overwrite them.  
+
+```{r eval=TRUE}
+
+aerial.tidy$Num[427] = 2
+
+
+```
+
+Alternatively, we can grab the index and do something to it all at once:
+
+```{r eval=TRUE}
+
+aerial.tidy$Num[aerial.tidy$Num == "t"] = 1 
+
+#find any values of Num == "t" and replace with 1
+
+
+```
+
+If we table it again, we can see that we have at least removed the d and t observations.  But the structure shows Num still contained as character instead of numeric.  
+
+
+```{r eval=TRUE}
+
+table(aerial.tidy$Species,aerial.tidy$Num)
+
+str(aerial.tidy)
+
+```
+
+To fix that, we can just tell aerial.tidy to reconsider that column as numeric. If we get any warnings or errors, we can assume there were other offenders in there.  In our case, there weren't.  Now when we table it, the columns even reorder correctly.  
+
+
+```{r eval=TRUE}
+
+aerial.tidy$Num = as.numeric(aerial.tidy$Num)
+
+str(aerial.tidy)
+
+table(aerial.tidy$Species,aerial.tidy$Num)
+
+```
+
+Now if we want a basic summary of our observations, we can use margin.table to sum the table across either or both dimensions.  In other words, a sum by rows, a sum by columns, or a total sum (keeping in mind our unit is observation and NOT number of things seen). Note that margin.table is like prop.table and the argument passed must be a table object. 
+
+```{r eval=TRUE}
+
+#The 1 specifies the first (row) dimension (how many times did we observe BLSC?)
+margin.table(table(aerial.tidy$Species,aerial.tidy$Num), 1)
+
+#The 2 specifies the second (column) dimension (how many times did we see only 1 of something?)
+margin.table(table(aerial.tidy$Species,aerial.tidy$Num), 2)
+
+#No dimension argument gives us the sum over both rows and columns (how many total observations were there?)
+margin.table(table(aerial.tidy$Species,aerial.tidy$Num))
+
+```
+
+
+## 4.1.2 Tables in Contributed Packages
+
+We will demonstrate table functions from 2 contributed (user-developed) packages, DT and kableExtra.  DT stands for data table and works best to visualize large data sets in a clean, searchable, sortable, filterable way.  kableExtra is a handy package for creating tables that use the functionality of html coding to render in either html or pdf reports.  We need to make sure we have both installed and loaded. 
+
+```{r eval=FALSE}
+
+install.packages(c("DT", "kableExtra", "htmltools", "zoo"))
+
+```
+
+
+```{r eval=TRUE, message=FALSE}
+
+library(DT)
+library(kableExtra)
+library(AKaerial)
+library(tidyverse)
+library(htmltools)
+library(zoo)
+
+```
+
+For the first example, we will load a table of real aerial index estimates from the AKaerial package and use some of our tidyverse functions to trim it down for a specific table using datatable from the package DT.  
+
+```{r eval=TRUE}
+
+ACPHistoric$combined %>% 
+  filter(Species=="SPEI") %>% 
+  select(Year, itotal, itotal.se) %>% 
+  datatable()
+
+```
+
+That's a solid first effort, but we can do better.  Our itotal column really shouldn't allow decimal amounts of birds, and the standard error could use some trimming.  I also don't particularly like seeing the row numbers in there.  And the column names could be better.  And we need a title, maybe shrink the width, center that middle column, and show me all of the entries at once since there are only 13.  
+
+```{r eval=TRUE}
+
+ACPHistoric$combined %>% 
+  filter(Species=="SPEI") %>% 
+  select(Year, itotal, itotal.se) %>% 
+  mutate_at("itotal", ~round(., 0)) %>%
+  mutate_at("itotal.se", ~round(., 2)) %>%
+  datatable(rownames=FALSE,  #cut out those row numbers showing
+            fillContainer = TRUE,  #auto-size the column widths
+            colnames=c("Year","Indicated Total","SE"),  #change column names
+            #set the caption obtusely using html styling
+            caption = htmltools::tags$caption( style = 'caption-side: top; 
+                                                text-align: center; 
+                                                color:black; 
+                                                font-size:100% ;',
+                                                'Table 1: Indicated Total SPEI on the ACP, 2007-2019.'),
+            options=list(
+              autoWidth=TRUE,
+              #center the column indexed 1 (starts with 0)
+              columnDefs = list(list(className = 'dt-center', targets = 1)),
+              pageLength=length(.[,1]),  #display all of the data points
+              dom=""))   #take away the search and page functionality
+
+```
+
+Now that's a table! It renders a little small though in this pdf since html styling doesn't jive well with pdf output.  It should look great in your console or in an html report.  We used a new tidyverse function mutate_at.  That changes the styling or content of certain columns only, referenced by name or number.  In this case, we applied the function round() to the piped data frame and told it to use 0 and 2 decimal places.  The rest of the changes were implemented as arguments to datatable().
+
+Now we will implement a similar table using kableExtra.  
+
+
+```{r eval=TRUE}
+
+YKGHistoric$combined %>% 
+  filter(Species=="BRAN") %>% 
+  select(Year, itotal, itotal.se) %>%
+  kable()
+  
+```  
+
+That might be good enough for some journals...but not for me.  Let's get our rounding going, change those column names, and even add a 3-year and 10-year rolling average (from the zoo package).  Eh...and a caption, a footnote, and a color scheme, just to give it that "next-level" feel.  
+  
+```{r eval=FALSE}
+
+YKGHistoric$combined %>% 
+  filter(Species=="EMGO") %>% 
+  
+  select(Year, itotal, itotal.se) %>%
+  
+  #rollapply in zoo rolls through a vector and applies a function to the segments
+  
+  mutate(avg3=rollapply(itotal,3,mean,align='right',fill=NA)) %>% 
+  
+  mutate(avg10=rollapply(itotal,10,mean,align='right',fill=NA)) %>%
+  
+  mutate_at(c("itotal", "avg3", "avg10"), ~round(., 0)) %>%
+  
+  mutate_at("itotal.se", ~round(., 2)) %>%
+  
+  #apply our conditional population objective coloring
+  mutate_at("itotal", function(x) { 
+    cell_spec(x, "html", color = ifelse(x > 26000, "green", "red"))
+    }) %>%
+  
+  kable(format="html",
+        escape = F, #html scheme requirement to make the color statement work
+        #now we paste in the footnote denotation on the indicated total column
+        col.names = c("Year", "Indicated Total*", 
+                      "SE", "3-year Avg", "10-year Avg"),
+        #and add the top caption
+        caption = "Table 2: Indicated Total EMGO on the YK-Delta, 1985-2019, including 3- and 10-year Averages.") %>%
+  
+  #adding the footnote is done in its own function so we pipe the kable to it
+  
+  footnote(symbol= "Indicated Total is used by the AMBCC to regulate harvest. Values of 26000 and above result in an open harvest.") %>%
+  
+  #this tells us to use the default bordered style 
+  kable_styling("bordered",
+                full_width=FALSE, 
+                font_size = 14)
+```
+
+
+
+
+```{r eval=TRUE, echo=FALSE, message=FALSE}
+
+YKGHistoric$combined %>% 
+  filter(Species=="EMGO") %>% 
+  
+  select(Year, itotal, itotal.se) %>%
+  
+  #rollapply in zoo rolls through a vector and applies a function to the segments
+  
+  mutate(avg3=rollapply(itotal,3,mean,align='right',fill=NA)) %>% 
+  
+  mutate(avg10=rollapply(itotal,10,mean,align='right',fill=NA)) %>%
+  
+  mutate_at(c("itotal", "avg3", "avg10"), ~round(., 0)) %>%
+  
+  mutate_at("itotal.se", ~round(., 2)) %>%
+  
+  #apply our conditional population objective coloring
+  mutate_at("itotal", function(x) { 
+    cell_spec(x, "html", color = ifelse(x > 26000, "green", "red"))
+    }) %>%
+  
+  kable(format="html",
+        escape = F, #html scheme requirement to make the color statement work
+        #now we paste in the footnote denotation on the indicated total column
+        col.names = c("Year", "Indicated Total*", 
+                      "SE", "3-year Avg", "10-year Avg"),
+        #and add the top caption
+        caption = "Table 2: Indicated Total EMGO on the YK-Delta, 1985-2019, including 3- and 10-year Averages.") %>%
+  
+  #adding the footnote is done in its own function so we pipe the kable to it
+  
+  footnote(symbol= "Indicated Total is used by the AMBCC to regulate harvest. Values of 26000 and above result in an open harvest.") %>%
+  
+  #this tells us to use the default bordered style 
+  kable_styling("bordered",
+                full_width=FALSE, 
+                font_size = 14) %>%
+  
+  as_image(file="table2.png")
+
+```
+
+
+The result could easily be hung on the nearest refrigerator (sorry, the styling will look funny as a pdf).  The majority of the work in creating a nice table is getting the formatting just right for your target.  It will take some practice to figure out where the option is that changes each of your style elements.  Don't forget that a package probably already exists to do exactly whatever manipulation you are dreaming of doing to your data.  Search engines are powerful tools.  
+
+## 4.2.1 Plotting in Base R
+
+Base R comes loaded with relatively robust plotting capability.  Just like with tables, though, the R community identified many features that were either missing, or difficult to implement, and expanded the R universe with contributed plotting content.  We will start in base R with the basics. 
+
+We will revisit our aerial.tidy that we created earlier.  Note that we aren't applying any pipes just yet since these visualizations are usually 1 or 2 contrasts and nothing else gets displayed, unlike a table where we want to choose exactly what data doesn't get displayed.  
+
+
+```{r eval=TRUE}
+
+hist(aerial.tidy$Num)
+
+
+```  
+
+The default x and y axis labels and main title leave us feeling a little empty.  Let's fix.  
+
+```{r eval=TRUE}
+
+hist(aerial.tidy$Num,
+     xlab = "Number observed", 
+     ylab = "Frequency of observation",
+     main = "Observations by size and frequency")
+
+
+```  
+
+Now let's make a barplot.  It looks similar to the histogram, but the histogram only works with numeric vectors.  A barplot can work with strings and factors converted to tables.  
+
+```{r eval=TRUE}
+
+counts=table(aerial$Obs_Type)
+
+barplot(counts, 
+        xlab="Observation Type",
+        ylab="Frequency",
+        main="Frequency of Observation Types")
+
+
+``` 
+
+Hmmm...looks like more QA/QC problems.  They seem pretty intuitive to fix except for one.  The second case of "pair" on the x axis is actually "pair " (with a space on the end).  This is a common problem with character data and one that R doesn't automatically know how to treat.  We would have identified it using a unique(aerial$Obs_Type) call.  So let's fix these. 
+
+
+```{r eval=TRUE}
+
+aerial$Obs_Type[aerial$Obs_Type %in% c("2pair", "pair ")] = "pair"
+
+aerial$Obs_Type[aerial$Obs_Type == "shingle"] = "single"
+
+unique(aerial$Obs_Type)
+
+``` 
+
+Ok, those look reasonable now.  Again with the barplot.  
+
+```{r eval=TRUE}
+
+counts=table(aerial$Obs_Type)
+
+barplot(counts, 
+        xlab="Observation Type",
+        ylab="Frequency",
+        main="Frequency of Observation Types")
+
+
+``` 
+
+Looks better.  We can even do 2-dimensional tables.  
+
+```{r eval=TRUE}
+
+counts=table(aerial.tidy$Distance, aerial.tidy$Species)
+
+barplot(counts, 
+        xlab="Species",
+        ylab="Frequency",
+        main="Frequency of Distance Bins by Species",
+        legend=rownames(counts),
+        col=c("red","white","yellow","blue"))
+
+
+
+``` 
+
+You can place them side by side with the argument beside = TRUE.
+
+```{r eval=TRUE}
+
+counts=table(aerial.tidy$Distance, aerial.tidy$Species)
+
+barplot(counts, 
+        xlab="Species",
+        ylab="Frequency",
+        main="Frequency of Distance Bins by Species",
+        legend=rownames(counts),
+        col=c("red","white","yellow","blue"),
+        beside=TRUE)
+
+
+
+``` 
+
+You can even configure the R plot window to show you multiple figures at once by changing up the graphical parameters.  
+
+
+```{r eval=TRUE}
+
+par(mfrow = c(2,2)) #give me a 2x2 matrix graphical display
+
+#R will fill the 4 spaces with my next 4 plot calls
+
+hist(aerial.tidy$Num,
+     xlab = "Number observed", 
+     ylab = "Frequency of observation",
+     main = "Observations by size and frequency")
+
+
+counts=table(aerial$Obs_Type)
+
+barplot(counts, 
+        xlab="Observation Type",
+        ylab="Frequency",
+        main="Frequency of Observation Types")
+
+
+counts=table(aerial.tidy$Distance, aerial.tidy$Species)
+
+barplot(counts, 
+        xlab="Species",
+        ylab="Frequency",
+        main="Frequency of Distance Bins by Species",
+        legend=rownames(counts),
+        col=c("red","white","yellow","blue"))
+
+
+counts=table(aerial.tidy$Distance, aerial.tidy$Species)
+
+barplot(counts, 
+        xlab="Species",
+        ylab="Frequency",
+        main="Frequency of Distance Bins by Species",
+        legend=rownames(counts),
+        col=c("red","white","yellow","blue"),
+        beside=TRUE)
+
+#don't forget to change it back!
+par(mfrow=c(1,1))
+
+``` 
+
+The base functions plot(), points(), and lines() work splendidly for time series type data.  
+
+```{r eval=TRUE}
+
+ltdu = YKDHistoric$combined %>% 
+  filter(Species == "LTDU")
+
+
+plot(total~Year, data = ltdu, 
+     type = 'l', #connect the dots
+     lwd = 3, #thicken the line
+     ylim = c(0,10000), #define the y range instead of letting R calculate it
+     ylab = "Total Birds Index", 
+     main = "LTDU Total Birds Index on the YK Delta, 1986-2019") 
+  
+lines((total-1.96*total.se)~Year, data = ltdu, lty = 2)
+  
+lines((total+1.96*total.se)~Year, data = ltdu, lty = 2)
+
+points(total~Year, data = ltdu, 
+       pch = 2)  #plot character 2, triangles
+
+```
+
+Here we only have 1 call to a new plot object.  The functions lines() and points() will place their output on top of the current plot (as long as they are in scale!).  Some data types even have their own plot processes that run when you try to plot them.  We will need a couple more packages, though, to deal with spatial data.  
+
+
+```{r eval=FALSE}
+
+install.packages(c("rgdal", "sp", "geojsonio", "ggplot2", "leaflet"))
+
+```
+
+
+```{r eval=TRUE, message=FALSE}
+
+library(rgdal)
+library(sp)
+library(geojsonio)
+library(ggplot2)
+library(leaflet)
+
+```
+
+The following series of commands will be doing a few things:
+
+1. Download the PlotData.zip container from my GitHub page  
+2. Place the file in your current working directory  
+3. Unzip the files from the container  
+4. Delete the .zip file  
+5. Read in the ACP ESRI shp file  
+6. Project the file in WGS84  
+7. Plot the polygons using base R plot()  
+
+
+```{r eval=FALSE}
+
+download.file("http://github.com/cfrost3/MBM_R_Short_Course/raw/master/PlotData/PlotData.zip", 
+              destfile = "PlotData.zip" , mode='wb')
+unzip("PlotData.zip", exdir = "./Plot")
+file.remove("PlotData.zip")
+
+```
+
+```{r eval=TRUE}
+
+map= readOGR("./Plot/ACP_2007to2019_StudyArea.shp",
+  layer = "ACP_2007to2019_StudyArea",
+  verbose=FALSE)
+
+map.proj <- spTransform(map, "+proj=longlat +ellps=WGS84 +datum=WGS84")
+
+plot(map.proj)
+
+```
+
+
+This is definitely the dry white toast of GIS mapping.  We could make it work if we had to, but luckily we have plenty of added features in the contributed packages ggplot2 and leaflet to visualize our spatial (and time series, and virtually every other possible type of) data.  
+
+
+## 4.2.2 Plotting in Contributed Packages
+
+The best package (currently) to learn to plot in is ggplot2.  It works with tidy data to produce publication-quality figures.  The major difference in base R plotting and ggplot2 is that while in base R you are passing vectors, in ggplot2 you use whole data frames.  Individual variables can be extracted from the data frame in various ways to add feature layers to your ggplot. We will start by recreating the long-tailed duck plot from earlier.
+
+```{r eval=TRUE}
+
+YKDHistoric$combined %>% 
+  filter(Species == "LTDU") %>%
+  ggplot(aes( x = Year, y = itotal))
+
+
+```
+
+Mind-blowing!  But really, what we've done here is establish our base layer and our aesthetics.  Here, the x axis defined as Year, and the y axis as indicated total.  We haven't told ggplot how to actual show us the data, but since the function is modular (like designing a modular home), we can start to tack on our layers.  
+
+```{r eval=TRUE}
+
+YKDHistoric$combined %>% 
+  filter(Species == "LTDU") %>%
+  ggplot(aes( x = Year, y = itotal)) +
+    geom_point() +
+    geom_line()
+
+
+```
+
+Here we told ggplot to now display our data as both points (geom_point) and lines (geom_line).  Now we can fix the axes and get those confidence intervals on there.  We will use a fill color and alpha value to set the transparency.  We can also set the labels using labs() while we are at it (very intuitively). 
+
+```{r eval=TRUE}
+
+duck.plot = 
+  YKDHistoric$combined %>% 
+  filter(Species == "LTDU") %>%
+  ggplot(aes( x = Year, y = total)) +
+    geom_point() +
+    geom_line() +
+    geom_ribbon(aes(ymin = total - 1.96 * total.se, ymax = total + 1.96 * total.se), 
+                fill = "blue", 
+                alpha = 0.2) +
+    coord_cartesian(xlim=c(1987,2020), ylim=c(0, 10000)) +
+    labs(title="LTDU Total Birds Index on the YK Delta, 1986-2019", x="Year", y="Total Birds Index")
+
+print(duck.plot)
+
+```
+
+So far so good.  Since a ggplot functions as an R object, we can store it in R (here we saved it as duck.plot) and add onto it with ease.  The only difference is when we store the object it won't automatically plot, so we have to explicitly make it print().  Now let's imagine we want to throw a simple linear regression onto it.  
+
+
+```{r eval=TRUE, message=FALSE}
+
+    duck.plot + geom_smooth(method='lm')
+    
+
+```
+
+Pretty slick.  Let's see that killer table we made earlier now in plot form.  
+
+```{r eval=TRUE, message=FALSE}
+
+emgo = 
+  
+  #tidy it up and pivot the estimates out
+  
+  YKGHistoric$combined %>% 
+  
+  filter(Species=="EMGO") %>% 
+  
+  select(Year, itotal, itotal.se) %>%
+  
+  mutate(avg3=rollapply(itotal,3,mean,align='right',fill=NA)) %>% 
+  
+  mutate(avg10=rollapply(itotal,10,mean,align='right',fill=NA)) %>%
+  
+  pivot_longer(cols=c("itotal","avg3", "avg10"), names_to = "index", values_to = "estimate")
+
+  #now plot it
+
+  emgo.base = 
+    
+  ggplot(emgo, aes(x = Year)) +
+  
+  #change the linetype (dash spacing) by index type  
+    
+  geom_line(aes(y = estimate, linetype=index), size = 1) +
+  
+  #add the confidence intervals
+  #note these are specific to itotal, so we have to filter what we pass
+      
+  geom_ribbon(data = filter(emgo, index=="itotal"), aes(ymin = estimate - 1.96 * itotal.se, ymax = estimate + 1.96 * itotal.se), 
+                fill = "blue", 
+                alpha = 0.2) +
+
+  coord_cartesian(xlim=c(1985,2020), ylim=c(0, 40000)) +
+  
+  labs(title="Indicated Total EMGO on the YK Delta, 1986-2019", x="Year", y="Indicated Total") +
+    
+  #make a keen legend to sort out the mess  
+    
+  scale_linetype_manual(name = "Estimate", 
+                        values = c(1,2,3), 
+                        labels = c("Annual Estimate", "3-year Avg", "10-year Avg"),
+                        limits = c("itotal", "avg3", "avg10")) +
+
+  #take the gray tiles off of the back  
+    
+  theme_bw()
+
+  
+  print(emgo.base)
+  
+```
+
+One powerful feature of ggplot is its ability to handle factors (or character strings that can be easily converted to factors).  It can process a multi-species or multi-area data set and produce a string of plots in no time.  
+
+```{r eval=TRUE, message=FALSE}
+
+multi = 
+  
+  
+  YKGHistoric$combined %>% 
+  
+  filter(Species %in% c("EMGO", "BRAN", "CCGO", "TAVS")) %>% 
+  
+  select(Year, Species, itotal, itotal.se)
+  
+  
+  multi.plot = 
+    ggplot(multi, aes(x = Year, y = itotal, color = Species)) +
+    geom_line(size=2) +
+    geom_ribbon(aes(ymin = itotal - 1.96 * itotal.se, ymax = itotal + 1.96 * itotal.se, 
+                    color=Species, 
+                    fill = Species), 
+                    alpha=.2)  +
+    labs(title="Indicated Total Geese on the YK Delta, 1985-2019", x="Year", y="Indicated Total") 
+
+  
+print(multi.plot)
+
+```
+
+The neat part here is that when we have a factor (or a character that can be automatically converted to one, in this case) such as Species, we can explicitly tell ggplot to map it as an aesthetic in the aes() definition right away.  Then later when we want to change colors, linetypes, sizes, etc., we just tell it to change per our aesthetic.  We even get a legend made automatically.  But what if we wanted to split these out by our Species factor, each to their own figure?
+
+
+```{r eval=TRUE, message=FALSE}
+
+multi.plot + 
+  facet_wrap(~Species, scales = "free")
+
+```
+
+We told it to create separate figures (facets) wrapped logically on our screen based on how big or small we shape our plot window.  These were separated by species (~Species), and we had to tell ggplot to allow the scales for each species to be "free" and not all based on the highest value of the most abundant species.  The alternative (and default) is "fixed."  Below we will use facet_grid to tell ggplot to change the number of rows to reflect the number of Species it counts.  I also use a few more style elements here to expand the x axis values and produce the legend.  
+
+```{r eval=TRUE, message=FALSE}
+
+ssm = read.csv("./Plot/StateSpaceEst.csv", 
+               header = TRUE, 
+               stringsAsFactors = FALSE)
+
+ssm = ssm %>%
+  pivot_longer(cols=c("N", "index"), 
+               names_to = "method",
+               values_to = "estimate")
+
+ssm.plot=
+  ggplot(ssm, aes(x = Year, y = estimate, fill = method)) +
+  geom_line(data = ssm %>% filter(method == "index"), size=1) +
+  geom_point(data = ssm %>% filter(method == "index"), size=2) +
+  geom_ribbon(data = ssm %>% filter(method == "index"), 
+              aes(ymin = l95index, ymax = u95index),
+                alpha = 0.6) +
+  
+  geom_ribbon(data = ssm %>% filter(method == "N"), 
+              aes(ymin = lower95, ymax = upper95),
+                alpha = 0.3) +
+  
+  facet_grid(Species~., scales = "free") + 
+  
+  
+  labs(title="Indicated Total on the ACP, 2009-2018,\nIncluding State-Space Model Estimates",
+        x="Year", y="Index / Model Estimate") +
+  
+  scale_fill_manual(name = "Method\n(95% CI)", 
+                    values=c("grey", "red") ,
+                    labels = c("Index Estimate", "State Space Estimate")) +
+  
+  scale_x_continuous("Year", labels = as.character(ssm$Year), breaks = ssm$Year) +
+  
+  theme(axis.text.x = element_text(face="bold", color="black")) +
+
+  theme_bw()
+
+
+print(ssm.plot)
+
+```
+
+
+Or, for a single species:
+
+```{r eval=TRUE, message=FALSE}
+
+ssm.single = ssm %>% filter(Species == "BRAN")
+
+ssm.single.plot =
+  ggplot(data = ssm.single, 
+         aes(x = Year, y = estimate, fill = method)) +
+  
+  geom_line(data = ssm.single %>% filter(method == "index"), size=1) +
+  
+  geom_point(data = ssm.single %>% filter(method == "index"), size=2) +
+  
+  geom_ribbon(data = ssm.single %>% filter(method == "index"), 
+              aes(ymin = l95index, ymax = u95index),
+                alpha = 0.6) +
+  
+  geom_ribbon(data = ssm.single %>% filter(method == "N"), 
+              aes(ymin = lower95, ymax = upper95),
+                alpha = 0.3) +
+  
+  labs(title="Indicated Total Brant on the ACP, 2009-2018,\nIncluding State-Space Model Estimates",
+        x="Year", y="Index / Model Estimate") +
+  
+  scale_fill_manual(name = "Method\n(95% CI)", 
+                    values=c("grey", "red") ,
+                    labels = c("Index Estimate", "State Space Estimate")) +
+  
+  scale_x_continuous("Year", 
+                     labels = as.character(ssm.single$Year), 
+                     breaks = ssm.single$Year) +
+  
+  theme(axis.text.x = element_text(face="bold", color="black")) +
+
+  coord_cartesian(ylim=c(0, 1.1 * max(ssm.single$u95index))) +
+  
+  geom_text(x=min(ssm.single$Year + 1), y=max(ssm.single$u95index),
+            label=paste0("Mean r = ", round(1 + ssm.single$mean.r[1], 2))) +
+  
+  geom_text(x=min(ssm.single$Year + 1), y=.95*max(ssm.single$u95index),
+            label=paste0("Pr(r > 0) = ", round(ssm.single$p.r, 2))) +
+  
+  theme_bw()
+
+print(ssm.single.plot)
+
+```
+
+Note the use of geom_text to paste together a character string and place it at a given (x,y) on the figure.  Also take note of the way you can dynamically set an axis to be a little wider or more narrow than the automatic setting.  We can also quickly add the associated table. 
+
+
+```{r eval=FALSE, echo=FALSE, message=FALSE}
+
+ssm = read.csv("./Plot/StateSpaceEst.csv", 
+               header = TRUE, 
+               stringsAsFactors = FALSE)
+
+  ssm %>%
+    
+  filter(Species == "BRAN") %>%
+  
+  select(-sd, -c(9:14)) %>%
+  
+  mutate_at(c(2:7), ~round(., 0)) %>%
+    
+  select(c(1,5,6,7,2,3,4)) %>%
+  
+  kable(format="html",
+        escape = F, 
+        col.names = c("Year", "Indicated Total*", 
+                      "Lower", "Upper", 
+                      "State-Space Estimate", 
+                      "Lower", "Upper"),
+        
+        caption = "Table 3: Indicated Total Brant on the ACP, 2009-2018, including state-space model estimates.") %>%
+  
+
+  footnote(symbol= "Indicated Total is calculated as 2(singles + pairs) + flocked birds.") %>%
+  
+ 
+  kable_styling("bordered",
+                full_width=FALSE, 
+                font_size = 14) %>%
+    
+  add_header_above(c(" " = 2, "95% CI" = 2, " " = 1, "95% CI" = 2))
+
+```
+
+
+  
+```{r eval=TRUE, echo=FALSE, message=FALSE}
+
+ssm = read.csv("./Plot/StateSpaceEst.csv", 
+               header = TRUE, 
+               stringsAsFactors = FALSE)
+
+  ssm %>%
+    
+  filter(Species == "BRAN") %>%
+  
+  select(-sd, -c(9:14)) %>%
+  
+  mutate_at(c(2:7), ~round(., 0)) %>%
+    
+  select(c(1,5,6,7,2,3,4)) %>%
+  
+  kable(format="html",
+        escape = F, 
+        col.names = c("Year", "Indicated Total*", 
+                      "Lower", "Upper", 
+                      "State-Space Estimate", 
+                      "Lower", "Upper"),
+        
+        caption = "Table 3: Indicated Total Brant on the ACP, 2009-2018, including state-space model estimates.") %>%
+  
+
+  footnote(symbol= "Indicated Total is calculated as 2(singles + pairs) + flocked birds.") %>%
+  
+ 
+  kable_styling("bordered",
+                full_width=FALSE, 
+                font_size = 14) %>%
+    
+  add_header_above(c(" " = 2, "95% CI" = 2, " " = 1, "95% CI" = 2)) %>%
+    
+    as_image(file="table3.png")
+  
+
+```
+
+
+
+Can ggplot plot spatial information?  It can, but not necessarily easily.  Remember when I said that ggplot takes a data frame rather than a vector?  Well, it also takes a data frame rather than a spatial format.  So to make it happen, we have to convert a shapefile or other spatial overlay into a data frame.  It isn't too hairy and I've created a function (LoadMap) in AKaerial that will read in your spatial file and output it as a ggplot-able data frame.  We will use it here and send it our shapefile. 
+
+```{r eval=TRUE, message=FALSE}
+
+map.df = AKaerial::LoadMap("./Plot/ACP_2007to2019_StudyArea.shp")
+
+ggplot() +
+  
+      #geom_path here tells ggplot to connect the dots of my spatial file,
+      #since polygons in their simplest form a just a series of vertices. 
+      
+      geom_path(data=map.df, aes(long,lat,group=group)  ) +
+  
+      geom_path(color="black") +
+  
+      #now set a reasonable bounding box  
+      coord_map(xlim=c(min(map.df$long), max(map.df$long)), 
+                ylim=c(min(map.df$lat), max(map.df$lat)))
+
+```
+
+This isn't spectacular either, maybe a step up from base R spatial plots.  We can add functionality to it and trace other polygons and fill in solid colors, but for spatial visualization, nothing really compares to leaflet (yet).  
+
+Leaflet is a powerful JavScript library that creates user-friendly maps for almost any occasion.  It isn't explicitly R code, so the package leaflet was created to access the JavaScript functionality through R.  You can see how powerful it is with even a basic map.
+
+```{r eval=TRUE, message=FALSE}
+
+leaflet() %>%
+  addTiles() %>%  # use the default base map tiles
+  addMarkers(lng=-87.6553, lat=41.9484,
+             popup="Wrigley Field")
+
+```
+
+Since leaflet maps are html widgets, they won't appear well or function in this pdf document.  On your computer screen, though, you can click, drag, and zoom.  They also work great in interactive html documents (much like datatables and kables).  
+
+In addition to just displaying a place on a map, leaflet can take your spatial data files and make glorious visualizations with them.  
+
+```{r eval=TRUE, message=FALSE}
+
+
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(data=map.proj,
+              fillColor = "red",
+              fillOpacity = .5)
+
+
+```
+
+We can add almost any spatial files to it.
+
+```{r eval=TRUE, message=FALSE}
+
+#read and project our lines shp file
+
+lines= readOGR("./Plot/ACP_2019_Transects.shp",
+  layer = "ACP_2019_Transects",
+  verbose=FALSE)
+
+lines.proj <- spTransform(lines, "+proj=longlat +ellps=WGS84 +datum=WGS84")
+
+#map it
+
+leaflet() %>%
+  
+  addPolygons(data=map.proj,
+              color = "yellow",
+              fill = FALSE,
+              fillOpacity = .5) %>%
+  
+  #add our lines here
+  addPolylines(data=lines.proj, 
+               color="white",
+                 weight=4,
+                 opacity=.9,
+                 label=~TRANSID,
+                 popup = paste("Transect: ", lines.proj$TRANSID, "<br>",
+                                "Length: ", lines.proj$LENGTH)) %>%
+   
+  #scale for...scale
+  addScaleBar() %>%
+
+  #cool satellite imagery base map
+  addProviderTiles("Esri.WorldImagery") %>%
+  
+  #add labels
+  addLabelOnlyMarkers(data = fortify(lines.proj) %>% 
+                        filter(order == 1) %>%
+                        mutate(new.id = as.numeric(id) + 1),
+                      label = ~as.character(new.id),
+                      labelOptions = labelOptions(noHide = T, 
+                                                  direction = 'top', 
+                                                  textOnly = T,
+                                                  style = list(
+                                                    "color" = "white",
+                                                    "font-size" = "12px")))
+
+
+```
+
+We got a little fancy there by extracting the start point of each of our transect lines, then adding a text label to the point with the transect id.  Now let's add some observation data:  
+
+```{r eval=TRUE, message=FALSE}
+
+#read our observations
+
+obs = read.csv("./Plot/ACP_2019_QCObs_HWilson.csv",
+               header=TRUE,
+               stringsAsFactors = FALSE)
+
+#define the spatial x,y for plotting
+coordinates(obs)=~Lon+Lat
+
+#map it
+
+leaflet() %>%
+  
+  addPolygons(data=map.proj,
+              color = "yellow",
+              fill = FALSE,
+              fillOpacity = .5) %>%
+  
+  #add our lines here
+  addPolylines(data=lines.proj, 
+               color="white",
+                 weight=4,
+                 opacity=.9,
+                 label=~TRANSID,
+                 popup = paste("Transect: ", lines.proj$TRANSID, "<br>",
+                                "Length: ", lines.proj$LENGTH)) %>%
+   
+  #scale for...scale
+  addScaleBar() %>%
+
+  #cool satellite imagery base map
+  addProviderTiles("Esri.WorldImagery") %>%
+  
+  #add labels
+  addLabelOnlyMarkers(data = fortify(lines.proj) %>% 
+                        filter(order == 1) %>%
+                        mutate(new.id = as.numeric(id) + 1),
+                      label = ~as.character(new.id),
+                      labelOptions = labelOptions(noHide = T, 
+                                                  direction = 'top', 
+                                                  textOnly = T,
+                                                  style = list(
+                                                    "color" = "white",
+                                                    "font-size" = "12px"))) %>%
+  
+  #add the point data
+  addCircleMarkers(data=obs,
+                     radius = 5,
+                     color = "green",
+                     stroke = FALSE,
+                     fillOpacity = 1,
+                     popup= paste(obs$Observer, "<br>", obs$Species,
+                                  "<br>", obs$Obs_Type, "<br>", "n = ",obs$Num,
+                                  "<br>", "Transect ", obs$Transect, "<br>"))
+
+
+```
+
+You can probably imagine many ways to use this type of map...at the very least, in QA/QC.  For example, scroll to the east and look at all of the green points that fall out of the study area!  In this case, though, that was actually by design for a corollary project on the refuge, but you can learn a lot from even a basic map.  We can also accomplish all of this with GeoJSON files.
+
+GeoJSON stands for Geographic Javascript Object Notation and is an encoding method for a variety of spatial data types.  Here we will use some polygon GeoJSON containers from the Yukon-Kuskokwim Delta. 
+
+
+```{r eval=TRUE, message=FALSE}
+
+ykdair <- geojson_read("./Plot/YKD_DesignStrata.geojson",  what = "sp")
+ykdnest <-  geojson_read("./Plot/NestPlotStudyAreaBoundary.geojson",  what = "sp")
+
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(data=ykdair,
+                fillColor="blue",
+                fillOpacity=0,
+                stroke=TRUE,
+                color="white",
+                opacity=1,
+                weight=2) %>%
+  addPolygons(data=ykdnest,
+                fillOpacity=0,
+                stroke=TRUE,
+                color="red",
+                opacity=1,
+                weight=2) %>%
+  addScaleBar() %>%
+  addProviderTiles("Esri.WorldImagery")
+
+
+```
+
+We read in 2 polygon layers describing the overall aerial survey coverage and subsetted nest plot project coverage.  Zoom way in where the red and white overlap.  Notice any potential QA/QC issues?
+
+
