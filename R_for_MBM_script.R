@@ -1076,10 +1076,166 @@ leaflet() %>%
 ##########################################
 
 
+##############################################
+#5.1.0 Dates and Times in Base R  ############
+##############################################
+
+
+today = Sys.Date()
+
+today
+
+str(today)
+
+#the unit here is the day, so you can do basic calculations-
+
+year.ago = Sys.Date() - 365  
+
+year.ago
+
+today - year.ago
+
+#this gives a longer representation, but as a character string, so no easy calculations
+
+today.long = date()
+
+str(today.long)
+
+#today.long - 365 (this won't work!)
+
+
+##########################################
+##########################################
+
+
+temps = data.frame ("Date"= c("2020-7-4", "2020-7-5", "2020-7-6", "2020-7"), 
+                    "Temp"= c(50, 51, 55, 50), 
+                    stringsAsFactors = FALSE)
+
+str(temps)
+
+temps$Date[4] = paste(temps$Date[4], "7", sep = "-")
+
+temps$Date = as.Date(temps$Date)
+
+str(temps)
+
+range = max(temps$Date) - min(temps$Date)
+
+range
+
+
+##########################################
+##########################################
+
+
+format(temps$Date, "%A")   #day
+
+format(temps$Date, "%a, %A") #abbreviated day, day
+
+format(temps$Date, "%a, %w") #abbreviated day, numeric day of the week
+
+format(temps$Date, "%W-%w")  #week of the year - numeric day of the week
+
+format(temps$Date, "%j")  #day of the year
+
+format(temps$Date, "%A, %B %d, %Y")  #day, character month, numeric day of month, 4 digit year
+
+as.Date("2020, 200", format = "%Y, %j")
+
+
+
+###############################################
+#5.2.0 Dates and Times in Contributed Packages#
+###############################################
+
+install.packages("lubridate")
+
+library(lubridate)
+library(tidyverse)
+
+aerial=read.csv(
+  "https://raw.githubusercontent.com/cfrost3/MBM_R_Short_Course/master/BLSC_2018_RawObs_Fake.csv", 
+  header=TRUE,
+  stringsAsFactors=FALSE)
+
+aerial.tidy = aerial %>% 
+  filter(!(Species %in% c("START", "ENDPT"))) %>%  #remove start and end points
+  select(Year, Month, Day, Species, Num)  #filter to just 5 columns for illustration
+
+
+str(aerial.tidy)
+
+table(aerial.tidy$Month)
 
 
 
 
+aerial.tidy$Month = 6
+
+str(aerial.tidy)
+
+
+##########################################
+##########################################
 
 
 
+today()
+
+now()
+
+
+ymd("2020-07-20")
+
+mdy("July 20th, 2020")
+
+dmy("20-Jul-2020")
+
+ymd(20200720)  #you can even pass all numbers without formatting
+
+
+##########################################
+##########################################
+
+aerial.tidy = aerial.tidy %>%
+  
+  mutate(Date = make_date(year = Year, month = Month, day = Day))
+
+
+head(aerial.tidy)
+
+
+
+aerial.tidy %>% 
+  ggplot(aes(Date)) + 
+  geom_freqpoly()
+
+
+unique(aerial.tidy$Date)
+
+unique(aerial.tidy$Year)
+
+
+
+aerial.tidy$Year = 2018
+
+aerial.tidy %>%
+  
+  mutate(Date = make_date(year = Year, month = Month, day = Day)) %>%
+  
+  ggplot(aes(Date)) + 
+  
+  geom_freqpoly()
+
+
+
+aerial.tidy %>%
+  
+  mutate(Date = make_date(year = Year, month = Month, day = Day)) %>%
+  
+  mutate(wday = wday(Date, label = TRUE)) %>% 
+  
+  ggplot(aes(x = wday)) +
+  
+  geom_bar()

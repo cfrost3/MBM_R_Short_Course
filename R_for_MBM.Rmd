@@ -20,8 +20,9 @@ The purpose of this ongoing short course is to familiarize MBM personnel with th
 2. Loading and saving, data types and structures  
 3. Tidy Data  
 4. Visualization  
-5. Creating functions, conditional statements, looping  
-6. Working with dates
+5. Working with dates
+6. Creating functions, conditional statements, looping  
+ 
 
 
 ## 1.0.1 What is R?  
@@ -1500,7 +1501,7 @@ ggplot() +
 
 This isn't spectacular either, maybe a step up from base R spatial plots.  We can add functionality to it and trace other polygons and fill in solid colors, but for spatial visualization, nothing really compares to leaflet (yet).  
 
-Leaflet is a powerful JavScript library that creates user-friendly maps for almost any occasion.  It isn't explicitly R code, so the package leaflet was created to access the JavaScript functionality through R.  You can see how powerful it is with even a basic map.
+Leaflet is a powerful JavaScript library that creates user-friendly maps for almost any occasion.  It isn't explicitly R code, so the package leaflet was created to access the JavaScript functionality through R.  You can see how powerful it is with even a basic map.
 
 ```{r eval=TRUE, message=FALSE}
 
@@ -1672,5 +1673,238 @@ leaflet() %>%
 ```
 
 We read in 2 polygon layers describing the overall aerial survey coverage and subsetted nest plot project coverage.  Zoom way in where the red and white overlap.  Notice any potential QA/QC issues?
+
+
+## 5.0.0 Working with Dates
+
+One common thread to almost every project we have ever conducted in MBM is that we want to include some temporal aspect in the related data.  This could be as simple as just a year, or as complicated as year-month-day-hours-minutes-seconds.  Just like every other topic we've discussed, base R provides crude and sometimes clunky ways to deal with dates, and contributed packages enhance and refine specialized methods for manipulation of date-time data.  
+
+## 5.1.0 Dates and Times in Base R
+
+The basic format for a date in R is YYYY-MM-DD.  You can grab today's date or date and time using Sys.Date() or date() commands.  
+
+```{r eval=TRUE}
+
+today = Sys.Date()
+
+today
+
+str(today)
+
+#the unit here is the day, so you can do basic calculations-
+
+year.ago = Sys.Date() - 365  
+
+year.ago
+
+today - year.ago
+
+#this gives a longer representation, but as a character string, so no easy calculations
+
+today.long = date()
+
+str(today.long)
+
+#today.long - 365 (this won't work!)
+
+```
+
+Base R has a Date format that can convert many types of dates into something you can manipulate with basic calculations.  Let's create a fake temperature reading data set. 
+
+```{r eval=TRUE}
+
+temps = data.frame ("Date"= c("2020-7-4", "2020-7-5", "2020-7-6", "2020-7"), 
+                    "Temp"= c(50, 51, 55, 50), 
+                    stringsAsFactors = FALSE)
+
+str(temps)
+
+
+```
+
+If we want R to be able to manipulate the Date column as a date, we can use as.Date() to change the data type.  Notice that the 4th entry is not in our standard format; it is missing the month or day.  Also the first 3 are not quite in the right format; they are in single digit month and day.  When we call as.Date, it will know what to do with the single digits, but it will fill an NA for the one missing the month or day since it doesn't want to guess what you meant.  We can fix this with a little paste command.  
+
+
+```{r eval=TRUE}
+
+temps$Date[4] = paste(temps$Date[4], "7", sep = "-")
+
+temps$Date = as.Date(temps$Date)
+
+str(temps)
+
+range = max(temps$Date) - min(temps$Date)
+
+range
+
+```
+
+One nifty trick with dates, once they are recognized as Date data types, is that you can reformat them to almost any possible date format.  This is done using format(), a generic function that reformats data types.  If you pass it a date, it calls the funtion strptime() to reformat the date using acceptable values.  You establish the format using a character string argument after your date argument.  See ?strptime for all of the possibilities, but here are a few-
+
+```{r eval=TRUE}
+
+format(temps$Date, "%A")   #day
+
+format(temps$Date, "%a, %A") #abbreviated day, day
+
+format(temps$Date, "%a, %w") #abbreviated day, numeric day of the week
+
+format(temps$Date, "%W-%w")  #week of the year - numeric day of the week
+
+format(temps$Date, "%j")  #day of the year
+ 
+format(temps$Date, "%A, %B %d, %Y")  #day, character month, numeric day of month, 4 digit year
+
+
+```
+
+You can also use the format specification in reverse to tell R what format your field is in that you want converted to a Date type, if you don't have the standard- 
+
+```{r eval=TRUE}
+
+as.Date("2020, 200", format = "%Y, %j")
+
+
+```
+
+
+## 5.2.0 Dates and Times in Contributed Packages
+
+The main (useful) date-time contributed package in R is lubridate, so make sure you have it installed and loaded.  We will also get back our fake aerial survey data to toy with. 
+
+
+```{r eval=FALSE}
+install.packages("lubridate")
+```
+
+```{r eval=TRUE}
+library(lubridate)
+library(tidyverse)
+
+aerial=read.csv(
+  "https://raw.githubusercontent.com/cfrost3/MBM_R_Short_Course/master/BLSC_2018_RawObs_Fake.csv", 
+  header=TRUE,
+  stringsAsFactors=FALSE)
+
+aerial.tidy = aerial %>% 
+ filter(!(Species %in% c("START", "ENDPT"))) %>%  #remove start and end points
+ select(Year, Month, Day, Species, Num)  #filter to just 5 columns for illustration
+
+ 
+str(aerial.tidy)
+
+table(aerial.tidy$Month)
+
+
+```
+
+Looks like Month is a little messy.  It looks like we meant to record all observations in June, so let's just overwrite it.  
+
+```{r eval=TRUE}
+
+aerial.tidy$Month = 6
+
+str(aerial.tidy)
+
+```
+
+As with other tidyverse elements, lubridate tries to make function calls more intuitive.  They replace Sys.Date() with today() and date() with now() to get dates and date-times.  
+
+
+```{r eval=TRUE}
+
+today()
+
+now()
+
+
+```
+
+Another handy treatment of dates in lubridate are a series of functions that simply take the letters m, d, and y, and rearrange them as needed to format your string into a date object-
+
+
+```{r eval=TRUE}
+
+ymd("2020-07-20")
+
+mdy("July 20th, 2020")
+
+dmy("20-Jul-2020")
+
+ymd(20200720)  #you can even pass all numbers without formatting
+
+
+```
+
+In our aerial data set, and in many, many others, we like to split up the columns into year, month, and day.  We can fix this using lubridate and the tidyverse.  
+
+```{r eval=TRUE}
+
+aerial.tidy = aerial.tidy %>%
+  
+  mutate(Date = make_date(year = Year, month = Month, day = Day))
+
+
+head(aerial.tidy)
+
+```
+
+
+Now we can plot it out using ggplot- 
+
+```{r eval=TRUE}
+
+aerial.tidy %>% 
+  ggplot(aes(Date)) + 
+  geom_freqpoly()
+
+```
+
+As usual, this uncovers another QA/QC problem.  
+
+```{r eval=TRUE}
+
+unique(aerial.tidy$Date)
+
+unique(aerial.tidy$Year)
+
+```
+
+Looks like we have a Year entered wrong.  We can fix it and try again to plot.
+
+
+```{r eval=TRUE}
+
+aerial.tidy$Year = 2018
+
+aerial.tidy %>%
+  
+  mutate(Date = make_date(year = Year, month = Month, day = Day)) %>%
+
+  ggplot(aes(Date)) + 
+  
+  geom_freqpoly()
+
+```
+
+The lubridate package also has many functions that mimic the format() function mentioned earlier.  For example, wday(). 
+
+
+```{r eval=TRUE}
+
+
+aerial.tidy %>%
+  
+  mutate(Date = make_date(year = Year, month = Month, day = Day)) %>%
+  
+  mutate(wday = wday(Date, label = TRUE)) %>% 
+  
+  ggplot(aes(x = wday)) +
+  
+    geom_bar()
+```
+
+In addition to date information, lubridate provides similar functions to deal with times, but we would use those so infrequently that I won't go over them here.  For more information, look up the package lubridate.  
+
 
 
