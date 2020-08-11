@@ -1239,3 +1239,407 @@ aerial.tidy %>%
   ggplot(aes(x = wday)) +
   
   geom_bar()
+
+
+###############################################
+#6.0.1 Functions           ####################
+###############################################
+
+library(AKaerial)
+
+?DataSelect
+
+
+
+GreetMe = function(){
+  print("Hello, Chuck")
+}
+
+GreetMe()
+
+
+##########################################
+##########################################
+
+
+
+GreetMe = function( who = "Chuck" ){
+  
+  print(paste("Hello,", who))
+  
+}
+
+GreetMe()
+
+GreetMe(who = "the rest of you")
+
+
+##########################################
+##########################################
+
+
+
+GreetMe = function( what = "Hey there,",
+                    who = "Chuck" ){
+  
+  print(paste(what, who))
+  
+}
+
+GreetMe()
+
+GreetMe(who = "the rest of you")
+
+GreetMe(what = "Hey! I can't believe it is really")
+
+GreetMe(what = "But who are", who = "the rest of you?")
+
+
+##########################################
+##########################################
+
+
+
+
+greeting = GreetMe(what = "But who are", who = "the rest of you?")
+
+greeting
+
+
+##########################################
+##########################################
+
+
+GreetMe = function( what = "Hey there,",
+                    who = "Chuck" ){
+  
+  what.who = paste(what, who)
+  
+  return(what.who)
+  
+}
+
+greeting = GreetMe(what = "But who are", who = "the rest of you?")
+
+greeting
+
+
+##########################################
+##########################################
+
+
+
+GreetMe = function( what = "Hey there,",
+                    who = "Chuck" ){
+  
+  what.who = paste(what, who)
+  
+  return(list("what.who" = what.who, 
+              "what" = what, 
+              "who" = who))
+  
+}
+
+greeting = GreetMe(what = "But who are", who = "the rest of you?")
+
+greeting
+
+
+##########################################
+##########################################
+
+
+
+greeting$what.who
+
+greeting[[1]]
+
+
+###############################################
+#6.0.2 Conditional Statements      ############
+###############################################
+
+5 < 4
+
+"a" < "b"
+
+c(1,2,5) >= c(0,3,5)
+
+1 == 2
+
+0 == FALSE
+
+1 != 2
+
+c(1,2,5) != c(0,3,5)
+
+
+
+##########################################
+##########################################
+
+
+#all values greater than 0 will return a logical TRUE 
+
+5 & 4
+
+#here the 0 is a FALSE, so both conditions aren't met
+5 & 0
+
+#but here we just need one of them to be TRUE to return a TRUE
+
+5 | 0
+
+#opposite logic for NOT
+!TRUE
+
+#element by element AND
+c(1,2,5) & c(0,3,5)
+
+#element by element OR 
+c(FALSE,2,3.9) | c(0,3,5)
+
+a = 5
+
+(a > 3) & (a < 10)
+
+
+##########################################
+##########################################
+
+library(tidyverse)
+
+PlotDucks = function (years, totals, type = "points"){
+  
+  if (type == "line") {
+    
+    plot(years,totals, type = "l")
+    
+  } else {plot(years, totals)}
+  
+  
+  
+}
+
+
+ltdu = YKDHistoric$combined %>% 
+  filter(Species == "LTDU")
+
+PlotDucks(years = ltdu$Year, totals = ltdu$total)
+
+
+
+##########################################
+##########################################
+
+PlotDucks(years = ltdu$Year, totals = ltdu$total, type = "line")
+
+
+##########################################
+##########################################
+
+
+PlotDucks = function (years, totals, species, type = "points"){
+  
+  if (type == "line" & species == "LTDU") {
+    
+    plot(years,totals, type = "l", main = "LTDU estimates")
+    
+  } else if (type == "line"){
+    
+    plot(years,totals, type = "l", main = "These are not LTDU estimates")
+    
+  } else {plot(years, totals, main = "These might be LTDU estimates")}
+  
+}
+
+
+ltdu = YKDHistoric$combined %>% 
+  filter(Species == "LTDU")
+
+par(mfrow=c(2,2))
+
+PlotDucks(years = ltdu$Year, totals = ltdu$total, species = "LTDU", type = "line")
+
+PlotDucks(years = ltdu$Year, totals = ltdu$total * 0, species = "not LTDU", type = "line")
+
+PlotDucks(years = ltdu$Year, totals = ltdu$total, species = "LTDU")
+
+PlotDucks(years = ltdu$Year, totals = ltdu$total * 0, species = "not LTDU")
+
+
+
+par(mfrow=c(1,1))
+
+
+
+###############################################
+#6.0.2 Looping                     ############
+###############################################
+
+for (i in 1:10) {
+  
+  print(i^2)
+  
+}
+
+
+##########################################
+##########################################
+
+
+for (i in 1:10) {
+  
+  #we don't want to deal with 5 so we use next to skip it.
+  #this jumps to the end of the loop and starts over with the next value.
+  
+  if(i == 5){next}
+  
+  print(i^2)
+  
+}
+
+
+
+for (i in 1:10) {
+  
+  #we don't want to continue squaring past 50.
+  #this test will break (end) the loop entirely when triggered.
+  
+  if(i^2 > 50){break}
+  
+  print(i^2)
+  
+}
+
+
+##########################################
+##########################################
+
+
+
+
+#we assume here that we know the structure of our data and that the columns exist
+
+PlotAll = function(data){
+  
+  #make a list of all known species
+  species.list = as.character(unique(data$Species))
+  
+  #iterate through the length of our species list
+  for (i in 1:length(species.list)){
+    
+    current.species = species.list[i]
+    
+    #filter our data to our current species
+    current.data = data %>% filter(Species == current.species)
+    
+    plot(current.data$Year, current.data$total, 
+         main = paste(current.species, "Estimates"))
+    
+    
+  }
+  
+}
+
+
+#we cheat a little here since I know there are 4 species to plot
+par(mfrow=c(2,2))
+
+PlotAll(CRDHistoric$combined)
+
+
+##########################################
+##########################################
+
+
+
+par(mfrow=c(3,3))
+
+PlotAll(ACPHistoric$combined)
+
+par(mfrow=c(1,1))
+
+
+
+##########################################
+##########################################
+
+
+
+area=character()
+
+year=integer()
+
+area.list = c("ACP", "CRD", "YKD")
+
+for (i in 1:length(area.list)) {
+  
+  for (j in 2018:2020) {
+    
+    area = rbind(area, area.list[i])
+    year = rbind(year, j)
+    
+  }
+  
+}
+
+area.year = data.frame(area = area, year = year, row.names = c(1:length(area)))
+
+
+area.year
+
+
+##########################################
+##########################################
+
+
+area=character()
+
+year=integer()
+
+species=character()
+
+area.list = c("ACP", "CRD", "YKD")
+
+species.list = c("LTDU", "STEI")
+
+for (i in 1:length(area.list)) {
+  
+  for (j in 1:length(species.list)){
+    
+    for (k in 2018:2020) {
+      
+      area = rbind(area, area.list[i])
+      species = rbind(species, species.list[j])
+      year = rbind(year, k)
+      
+    }
+  }
+}
+
+area.species.year = data.frame(area = area, 
+                               species = species, 
+                               year = year, 
+                               row.names = c(1:length(area)))
+
+
+area.species.year
+
+
+##########################################
+##########################################
+
+
+i = c(1:10)
+j = i^2
+
+j
+
+expand.grid(area.list, species.list, c(2018:2020))
+
+
+
+
+
+

@@ -1907,4 +1907,502 @@ aerial.tidy %>%
 In addition to date information, lubridate provides similar functions to deal with times, but we would use those so infrequently that I won't go over them here.  For more information, look up the package lubridate.  
 
 
+## 6.0.0 Creating Functions, Conditional Statements, and Looping
+
+Functions, conditional programming, and looping are concepts that are rooted deeply in generations of computer programming techniques.  They can each be implemented separately, but, as illustrated below, often meld to enhance efficiency, cohesiveness, and structure of your code.  
+
+## 6.0.1 Functions
+
+Functions are used by programmers for 2 reasons: 
+
+Reusability - If something is going to be done more than once, a function can be used to increase efficiency.  In R, this works both within and across packages.  I may write a function in a package pertaining to data analysis that performs an algorithm common to a given data type, but I might call a function from another package that is designed to generically tidy up data before performing the algorithm.  Both cases are examples of the power of reusing functions.  
+
+
+To provide a meaningful abstraction - In programming speak (and in general), abstraction refers to hiding or marginalizing (abstracting) the details and inner workings of a process. A well-named and well-written function will hide the details of a process and provide a user with a clean way to accomplish a task.  For comparison, think of driving a car.  You don't need to be a mechanic to drive a car.  The car itself is a meaningful abstraction for the process of combustion-based locomotion.  The user can get in and drive with very basic input.  Similarly, a function can be built to accomplish an incredibly complex task with very little input from the user.  
+
+
+A function has 4 primary components: 
+
+1. Name - Functions should have (mostly) unique and appropriate names.  They should be short, but not too short.  Descriptive, but not too descriptive. You wouldn't want to call a function ThisIsHowToAddOneOrMoreNumbersTogether when you could call it Sum and deliver the same information to the user.  
+
+2. Purpose - What is your intent?  Maybe a function already exists to do it.  What do you actually want it to do?
+
+3. Arguments - Arguments are the inputs to a function.  You can pass almost anything to a function, from a simple variable, to a list of multiple data types.  In some cases you will use arguments as surrogates for "settings" within a function.  For example, you might use the argument plot.type = "histogram" to have your function produce a histogram, but also allow plot.type = "density" to produce a density plot using the same function. 
+
+4. Return Value - Functions commonly (but not always) return values after running.  In R, functions can return any R object.  If you want to return a string and a numeric as 2 objects, they must be returned as a list.  If you don't provide a return statement at the end of your function, R will automatically return the last calculation as the return value.  
+
+You will usually find these 4 components clearly defined in the help file for a given function.  
+
+
+```{r eval=FALSE}
+library(AKaerial)
+
+?DataSelect
+
+
+```
+
+Here in the function `DataSelect()` from package `AKaerial`, we have the name that describes briefly what we could expect the function to do- select some data.  In the Description and Details sections we see the purpose of the function- combine data layers into one summarized list.  Under Arguments we see what needs to be provided for the function to work- `area`, `data.path`, `strata.path`, `transect.path`, and `threshold`.  Finally, under Value we see what we can expect back- a list of 4 elements.  
+
+Does this function pass our usefulness test?  Is it sufficiently reusable?  Yes, we can take the spatial and data components of a project and combine them into an analysis file for any combination of design files.  We expect to have to do this a lot.  Does it provide meaningful abstraction?  Yes, it performs dozens of transformations behind the scenes that users don't really need to worry about to get a useful file for analysis.  Could they still trace the transformations?  Yes, but this is probably only necessary if they want to change them someday. For normal use, abstraction works great. 
+
+Now let's create some functions from scratch.  Note the syntax below closely.  The name of the function needs to be provided and defined as a function.  You need parentheses to define the set of arguments, even if there are none, followed by a set of curly braces that will hold the body of the function.
+
+```{r eval=TRUE}
+
+GreetMe = function(){
+ print("Hello, Chuck")
+}
+
+GreetMe()
+
+
+```
+
+This is about as basic as it gets.  And this doesn't really pass our function test since it isn't really a meaningful abstraction.  But for illustration, we define `GreetMe` as a function with no arguments that simply tells me hello.  So let's add an argument telling it who we want to greet. 
+
+```{r eval=TRUE}
+
+GreetMe = function( who = "Chuck" ){
+ 
+  print(paste("Hello,", who))
+
+  }
+
+GreetMe()
+
+GreetMe(who = "the rest of you")
+
+
+```
+
+So our function now wants the user to supply who to greet.  If they don't supply it, I've told it to default to Chuck.  Then all the function does is paste the name onto our greeting and print the result.  But what if we wanted to allow the user to change the greeting as well as the recipient?  
+
+```{r eval=TRUE}
+
+GreetMe = function( what = "Hey there,",
+                    who = "Chuck" ){
+ 
+  print(paste(what, who))
+
+  }
+
+GreetMe()
+
+GreetMe(who = "the rest of you")
+
+GreetMe(what = "Hey! I can't believe it is really")
+
+GreetMe(what = "But who are", who = "the rest of you?")
+
+```
+
+In this example, we supplied defaults just in case our user didn't specify `what` or `who`.  We can also store the return value as an R object if we want. Remember that unless we specify a return statement in the function, it defaults to the final computation.  
+
+```{r eval=TRUE}
+
+greeting = GreetMe(what = "But who are", who = "the rest of you?")
+
+greeting
+
+```
+
+Alternatively, 
+
+```{r eval=TRUE}
+
+GreetMe = function( what = "Hey there,",
+                    who = "Chuck" ){
+ 
+  what.who = paste(what, who)
+
+  return(what.who)
+  
+  }
+
+greeting = GreetMe(what = "But who are", who = "the rest of you?")
+
+greeting
+
+```
+
+One subtle difference here is that we replaced the `print()` statement with the object `what.who` definition.  This results in the function running silently.  It no longer prints our greeting every run.  We had to call our greeting object explicitly.  Now let's imagine we want both the pasted version and the unpasted inputs.  
+
+```{r eval=TRUE}
+
+GreetMe = function( what = "Hey there,",
+                    who = "Chuck" ){
+ 
+  what.who = paste(what, who)
+
+  return(list("what.who" = what.who, 
+              "what" = what, 
+              "who" = who))
+  
+  }
+
+greeting = GreetMe(what = "But who are", who = "the rest of you?")
+
+greeting
+
+```
+
+Now our greeting object is returned as a list.  To access the components we have our old standby method $, or with bracket notation for list elements (note the double brackets for the list instead of single for matrix elements). 
+
+```{r eval=TRUE}
+
+greeting$what.who
+
+greeting[[1]]
+
+```
+
+
+## 6.0.2 Conditional Statements
+
+A conditional statement (often called an if-else statement) is one that controls the flow of a function or block of code by using the result of a boolean test.  Boolean is another term for a logical data type in R, or one that can take the values `TRUE` or `FALSE`.  An if-else statement in R takes the general form:
+
+`if (<condition TRUE>) {<do this>}`
+
+or: 
+
+`if (<condition TRUE) {<do this>} else {<do this if FALSE>}`
+
+or even:
+
+`if (<condition TRUE) {<do this>} else if (<second condition TRUE>) {`
+`<do this>} else {<do this if all others FALSE>}`
+
+You can piggyback as many if - else if - else pieces as you need.  But if you find yourself doing a bunch of them, there is probably a better way.  
+
+Conditional statements rely on relational operators (also called relationals, relational tests, comparators).  We have used several of them already in the code above.  
+
+The 6 relational operators in R are:
+
+`x < y`    (x is less than y)  
+`x > y`    (x is greater than y)  
+`x <= y`   (x is less than or equal to y)  
+`x >= y`   (x is greater than or equal to y)  
+`x == y`   (x is equal to y)  
+`x != y`   (x is not equal to y)  
+
+Let's test them out. 
+
+```{r eval=TRUE}
+
+5 < 4
+
+"a" < "b"
+
+c(1,2,5) >= c(0,3,5)
+
+1 == 2
+
+0 == FALSE
+
+1 != 2
+
+c(1,2,5) != c(0,3,5)
+
+```
+
+
+In addition to relational operators, R has 3 primary logical operators.  Logical operators provide tests for "and, or, and not."  They are coded as:
+
+`&` - element by element conditional AND.  Both or all statements must be TRUE to return TRUE.
+
+`|` - element by element conditional OR.  One statement must be TRUE to return TRUE.
+
+`!` - element by element conditional NOT.  Returns the opposite logical test for an element.  
+
+
+There are also vector versions of `&&` and `||` that will use the first element of each vector and return a single value of TRUE or FALSE for the entire test.  You probably won't need these and we won't talk about them here. We've also used the `%in%` operator previously.  It is a special case operator that tests an element to see if it occurs in a vector of elements.  Since this is just an extension of the OR operator, we don't consider it to be a basic logical operator. 
+
+
+
+Let's test the others. 
+
+```{r eval=TRUE}
+
+#all values greater than 0 will return a logical TRUE 
+
+5 & 4
+
+#here the 0 is a FALSE, so both conditions aren't met
+5 & 0
+
+#but here we just need one of them to be TRUE to return a TRUE
+
+5 | 0
+
+#opposite logic for NOT
+!TRUE
+
+#element by element AND
+c(1,2,5) & c(0,3,5)
+
+#element by element OR 
+c(FALSE,2,3.9) | c(0,3,5)
+
+a = 5
+
+(a > 3) & (a < 10)
+
+
+```
+
+And now we can combine them into our if-else statements and functions.  
+
+```{r eval=TRUE}
+library(tidyverse)
+
+PlotDucks = function (years, totals, type = "points"){
+  
+  if (type == "line") {
+    
+    plot(years,totals, type = "l")
+    
+  } else {plot(years, totals)}
+  
+  
+  
+}
+
+
+ltdu = YKDHistoric$combined %>% 
+  filter(Species == "LTDU")
+
+PlotDucks(years = ltdu$Year, totals = ltdu$total)
+
+
+```
+
+So here we used the argument "type" as a kind of setting.  The user passes in the years, the totals, and then whether they want points or lines.  Our function tests their input and responds accordingly.  
+
+```{r eval=TRUE}
+
+PlotDucks(years = ltdu$Year, totals = ltdu$total, type = "line")
+
+```
+
+We can alter the function a little to show the use of the AND operator.  
+
+```{r eval=TRUE}
+
+PlotDucks = function (years, totals, species, type = "points"){
+  
+  if (type == "line" & species == "LTDU") {
+    
+    plot(years,totals, type = "l", main = "LTDU estimates")
+    
+  } else if (type == "line"){
+    
+    plot(years,totals, type = "l", main = "These are not LTDU estimates")
+    
+  } else {plot(years, totals, main = "These might be LTDU estimates")}
+  
+}
+
+
+ltdu = YKDHistoric$combined %>% 
+  filter(Species == "LTDU")
+
+par(mfrow=c(2,2))
+
+PlotDucks(years = ltdu$Year, totals = ltdu$total, species = "LTDU", type = "line")
+
+PlotDucks(years = ltdu$Year, totals = ltdu$total * 0, species = "not LTDU", type = "line")
+
+PlotDucks(years = ltdu$Year, totals = ltdu$total, species = "LTDU")
+
+PlotDucks(years = ltdu$Year, totals = ltdu$total * 0, species = "not LTDU")
+
+
+
+par(mfrow=c(1,1))
+```
+
+If we trace through the conditional formatting, R will run the first matching condition and exit out of the if-else.  So by the end we get a catch-all that plots points and says they "might be" LTDU because we've only eliminated LTDU line plot, line plots for every other species.  We don't test the species and it is caught in our final else condition no matter what it is.
+
+## 6.0.3 Looping
+
+Loops are a special class of conditional statements that are designed to replicate a process either over a sequence of values (`for` loops) or indefinitely until a condition is met (`while` or `repeat` loops).  The latter are used more in application programming than data programming, so we won't talk about them much.  For loops are far and away the most common loop in R programming, though they aren't always necessary.  The general structure of a `for` loop is:
+
+`for (<value> in <sequence>) {<do stuff>}`
+
+Here is a basic example.  We will take values of i between 1 and 10 and print the squared value.  
+
+```{r eval=TRUE}
+
+for (i in 1:10) {
+  
+  print(i^2)
+  
+}
+
+```
+
+In this case, i started at the first value of our sequence, was squared and output, reached the end, and iterated back until it reached the final value of the sequence.  We can add some nonsense complexity to it do demonstrate how we can skip or break the loop.  
+
+```{r eval=TRUE}
+
+
+for (i in 1:10) {
+
+  #we don't want to deal with 5 so we use next to skip it.
+  #this jumps to the end of the loop and starts over with the next value.
+    
+  if(i == 5){next}
+  
+  print(i^2)
+  
+}
+
+
+
+for (i in 1:10) {
+
+  #we don't want to continue squaring past 50.
+  #this test will break (end) the loop entirely when triggered.
+    
+  if(i^2 > 50){break}
+  
+  print(i^2)
+  
+}
+```
+
+One common use of next would be to catch and skip NA values with `is.na()`.  There aren't many reasons why you would want to `break` your loops.  These are more appropriate in application programming than in data analysis and manipulation.  
+
+Let's do something a little more useful with our for loop inside a function.  Imagine we want to take a table of estimates and plot them out by species no matter how many species we have.  We can do it with a for loop inside a function.
+
+```{r eval=TRUE}
+
+#we assume here that we know the structure of our data and that the columns exist
+
+PlotAll = function(data){
+  
+  #make a list of all known species
+  species.list = as.character(unique(data$Species))
+  
+  #iterate through the length of our species list
+  for (i in 1:length(species.list)){
+    
+    current.species = species.list[i]
+    
+    #filter our data to our current species
+    current.data = data %>% filter(Species == current.species)
+    
+    plot(current.data$Year, current.data$total, 
+         main = paste(current.species, "Estimates"))
+    
+    
+  }
+  
+}
+
+
+#we cheat a little here since I know there are 4 species to plot
+par(mfrow=c(2,2))
+
+PlotAll(CRDHistoric$combined)
+
+```
+
+If we wrote our function correct, we should be able to apply it to other, larger data tables. 
+
+```{r eval=TRUE}
+
+par(mfrow=c(3,3))
+
+PlotAll(ACPHistoric$combined)
+
+par(mfrow=c(1,1))
+```
+
+You can nest a mind-boggling number of for loops together as well.  Although if you find yourself doing this, there is probably a function or other method that would be cleaner and easier.  Our example will create an empty list of project areas and the last 3 years to store some future values in.  
+
+```{r eval=TRUE}
+
+
+area=character()
+
+year=integer()
+
+area.list = c("ACP", "CRD", "YKD")
+
+for (i in 1:length(area.list)) {
+  
+  for (j in 2018:2020) {
+    
+    area = rbind(area, area.list[i])
+    year = rbind(year, j)
+    
+  }
+  
+}
+
+area.year = data.frame(area = area, year = year, row.names = c(1:length(area)))
+
+
+area.year
+
+
+```
+
+And finally, add a species in there.
+
+```{r eval=TRUE}
+
+
+area=character()
+
+year=integer()
+
+species=character()
+
+area.list = c("ACP", "CRD", "YKD")
+
+species.list = c("LTDU", "STEI")
+
+for (i in 1:length(area.list)) {
+  
+  for (j in 1:length(species.list)){
+
+      for (k in 2018:2020) {
+    
+        area = rbind(area, area.list[i])
+        species = rbind(species, species.list[j])
+        year = rbind(year, k)
+    
+    }
+  }
+}
+
+area.species.year = data.frame(area = area, 
+                               species = species, 
+                               year = year, 
+                               row.names = c(1:length(area)))
+
+
+area.species.year
+
+```
+
+
+But, as I mentioned with nested for loops, there is probably a quicker way. And with automatic vectorization in R, even the simpler for loops are recreated easily.  
+
+
+```{r eval=TRUE}
+
+i = c(1:10)
+j = i^2
+
+j
+
+expand.grid(area.list, species.list, c(2018:2020))
+
+```
+
+
 
